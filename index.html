@@ -2626,6 +2626,8 @@ select option { background:var(--bg-card); }
 .sim-tab { padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; border-radius:8px 8px 0 0; color:var(--text-muted); transition:.2s; }
 .sim-tab:hover { background:var(--bg-card); color:var(--text-primary); }
 .sim-tab.active { background:var(--bg-card); color:var(--accent-blue); border-bottom:2px solid var(--accent-blue); margin-bottom:-2px; }
+.sim-tabpanel { display:none; }
+.sim-tabpanel.active { display:block; }
 
 /* ── REBALANCEAMENTO: ORDENS POR ATIVO ── */
 .sim-ordens-table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -3169,7 +3171,6 @@ self.addEventListener('fetch', e => {
           </table>
         </div>
       </div>
-    </div>
 
     <!-- Multi-Período Benchmark -->
     <div class="card" style="margin-top:16px" id="multiperiodoCard">
@@ -14514,31 +14515,41 @@ function renderMultiperiodo() {
   });
   carteira1D = count1D > 0 ? carteira1D / count1D : 0;
 
+  // Live market data for indices
+  const bvspLive = (typeof mercadoLiveData !== 'undefined') && (mercadoLiveData['BVSP'] || mercadoLiveData['IBOV']);
+  const smllLive = (typeof mercadoLiveData !== 'undefined') && (mercadoLiveData['SMLL'] || mercadoLiveData['SMLL11']);
+  const ibov1D   = bvspLive ? bvspLive.chg : null;
+  const smll1D   = smllLive ? smllLive.chg : null;
+
   const rows = [
     { label: '📂 Minha Carteira', v1D: carteira1D, v1M: gainAcum/12, v3M: gainAcum/4, v6M: gainAcum/2, vYTD: gainAcum*(new Date().getMonth()/12), v12M: gainAcum, cls: 'mp-carteira' },
-    { label: '🏛️ CDI', v1D: cdi1d, v1M: cdi1m, v3M: cdi1m*3, v6M: cdi1m*6, vYTD: cdiYTD, v12M: CDI_ANUAL, cls: '' },
-    { label: '📈 IPCA', v1D: 0, v1M: IPCA_ANUAL/12, v3M: IPCA_ANUAL/4, v6M: IPCA_ANUAL/2, vYTD: IPCA_ANUAL*(new Date().getMonth()/12), v12M: IPCA_ANUAL, cls: '' },
+    { label: '🏛️ CDI',            v1D: cdi1d,     v1M: cdi1m,       v3M: cdi1m*3,    v6M: cdi1m*6,    vYTD: cdiYTD,                                v12M: CDI_ANUAL,   cls: '' },
+    { label: '📈 IPCA',           v1D: null,       v1M: IPCA_ANUAL/12, v3M: IPCA_ANUAL/4, v6M: IPCA_ANUAL/2, vYTD: IPCA_ANUAL*(new Date().getMonth()/12), v12M: IPCA_ANUAL, cls: '' },
+    { label: '📊 IBOVESPA',       v1D: ibov1D,     v1M: null,        v3M: null,       v6M: null,       vYTD: null,                                  v12M: null,        cls: '' },
+    { label: '🔹 Small Caps',     v1D: smll1D,     v1M: null,        v3M: null,       v6M: null,       vYTD: null,                                  v12M: null,        cls: '' },
   ];
 
   const cell = (v, ref) => {
-    const cls = v > ref ? 'mp-up' : v < ref ? 'mp-down' : '';
-    return `<td class="mono ${cls}">${v===0&&ref===0?'—':(v>=0?'+':'')+fmt(v)}%</td>`;
+    if (v === null) return `<td class="mono" style="color:var(--text-muted)">—</td>`;
+    const cls = (ref !== null && v > ref) ? 'mp-up' : (ref !== null && v < ref) ? 'mp-down' : '';
+    return `<td class="mono ${cls}">${(v>=0?'+':'')+fmt(v)}%</td>`;
   };
 
+  const cdiRow = rows[1];
   el.innerHTML = `<div style="overflow-x:auto"><table class="mp-table">
     <thead><tr>
       <th>Benchmark</th>
       <th>1D</th><th>1M</th><th>3M</th><th>6M</th><th>YTD</th><th>12M</th>
     </tr></thead>
     <tbody>
-    ${rows.map((r, ri) => `<tr class="${r.cls}">
+    ${rows.map(r => `<tr class="${r.cls}">
       <td style="font-weight:600">${r.label}</td>
-      ${cell(r.v1D, rows[1].v1D)} ${cell(r.v1M, rows[1].v1M)} ${cell(r.v3M, rows[1].v3M)}
-      ${cell(r.v6M, rows[1].v6M)} ${cell(r.vYTD, rows[1].vYTD)} ${cell(r.v12M, rows[1].v12M)}
+      ${cell(r.v1D, cdiRow.v1D)} ${cell(r.v1M, cdiRow.v1M)} ${cell(r.v3M, cdiRow.v3M)}
+      ${cell(r.v6M, cdiRow.v6M)} ${cell(r.vYTD, cdiRow.vYTD)} ${cell(r.v12M, cdiRow.v12M)}
     </tr>`).join('')}
     </tbody>
   </table></div>
-  <div style="font-size:10px;color:var(--text-muted);margin-top:6px;padding:0 4px">* 1D e rentabilidades parciais são estimativas baseadas nos dados disponíveis</div>`;
+  <div style="font-size:10px;color:var(--text-muted);margin-top:6px;padding:0 4px">* 1D via dados ao vivo · períodos históricos de índices requerem API histórica</div>`;
 }
 
 // =========================================================
