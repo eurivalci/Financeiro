@@ -2709,6 +2709,18 @@ select option { background:var(--bg-card); }
 .mp-up   { color:var(--accent-green) !important; }
 .mp-down { color:var(--accent-red)   !important; }
 
+/* ── PERFORMANCE STRIP (compact) ── */
+.perf-strip { display:flex; align-items:center; gap:14px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:7px 14px; margin-bottom:14px; flex-wrap:wrap; }
+.ps-label { font-size:10px; font-weight:700; color:var(--text-muted); letter-spacing:.4px; text-transform:uppercase; margin-right:2px; }
+.ps-group { display:flex; align-items:center; gap:5px; }
+.ps-name { font-size:12px; font-weight:600; color:var(--text-secondary); }
+.ps-tag { font-size:10px; color:var(--text-muted); }
+.ps-val { font-family:var(--mono); font-weight:700; font-size:12px; }
+.ps-val.up   { color:#10b981; }
+.ps-val.down { color:#ef4444; }
+.ps-val.flat { color:var(--text-muted); }
+.ps-sep { color:var(--border); font-size:16px; font-weight:300; }
+
 @media(max-width:900px) {
   .metas-kpi-strip { grid-template-columns:1fr 1fr; }
 }
@@ -3363,6 +3375,7 @@ self.addEventListener('fetch', e => {
     <!-- ==================== DISTRIBUIÇÃO ==================== -->
     <div class="page" id="page-distribuicao">
       <div class="section-title">🧩 Distribuição da Carteira</div>
+      <div id="perfStrip-distribuicao"></div>
       <div class="pie-grid">
         <div class="card">
           <div class="card-header"><div class="card-title">Por Classe de Ativo</div><div class="dist-chart-hint">👆 Clique para filtrar</div></div>
@@ -3464,6 +3477,7 @@ self.addEventListener('fetch', e => {
     <!-- ==================== ALOCAÇÃO ==================== -->
     <div class="page" id="page-alocacao">
       <div class="section-title">🏦 Estratégia de Alocação</div>
+      <div id="perfStrip-alocacao"></div>
       <div class="charts-grid">
         <div class="card">
           <div class="card-header">
@@ -3668,6 +3682,7 @@ self.addEventListener('fetch', e => {
           <button class="btn btn-secondary btn-sm" onclick="exportPDF()">📄 PDF</button>
         </div>
       </div>
+      <div id="perfStrip-ativos"></div>
       <!-- Barra de cotações ao vivo -->
       <div class="ativos-quote-bar" style="display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin-bottom:14px;flex-wrap:wrap">
         <span class="aqb-dot off" id="aqbDot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0"></span>
@@ -9480,6 +9495,7 @@ function showPage(id) {
   // Re-init charts if needed
   setTimeout(() => {
     if (id === 'graficos' || id === 'distribuicao' || id === 'alocacao') { initCharts(); if (id === 'distribuicao') renderHeatmap(); }
+    if (id === 'distribuicao' || id === 'alocacao' || id === 'ativos') { renderPerfStrip(id); }
     if (id === 'crypto') renderCryptoPage();
     if (id === 'dividas') renderDividasPage();
     if (id === 'empconc') { setTimeout(() => renderEmpConc(), 50); }
@@ -14550,6 +14566,58 @@ function renderMultiperiodo() {
     </tbody>
   </table></div>
   <div style="font-size:10px;color:var(--text-muted);margin-top:6px;padding:0 4px">* 1D via dados ao vivo · períodos históricos de índices requerem API histórica</div>`;
+}
+
+// =========================================================
+// PERFORMANCE STRIP — compact benchmark bar for inner pages
+// =========================================================
+function renderPerfStrip(pageId) {
+  const el = document.getElementById('perfStrip-' + pageId);
+  if (!el) return;
+
+  const patrimonio = calcPatrimonio();
+  const custo      = calcCustoTotal();
+  const gain12M    = custo > 0 ? (patrimonio - custo) / custo * 100 : 0;
+
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  let carteira1D = 0, count1D = 0;
+  rvAtivos.forEach(a => { const c = getChgPct(a.ticker); if (c !== null) { carteira1D += c; count1D++; } });
+  carteira1D = count1D > 0 ? carteira1D / count1D : 0;
+
+  const cdi1d  = CDI_ANUAL / 252;
+  const cdi12M = CDI_ANUAL;
+  const bvsp   = (typeof mercadoLiveData !== 'undefined') && (mercadoLiveData['BVSP'] || mercadoLiveData['IBOV']);
+  const ibov1D = bvsp ? bvsp.chg : null;
+
+  const val = (v, ref) => {
+    if (v === null) return `<span class="ps-val flat">—</span>`;
+    const cls = v > ref ? 'up' : v < ref ? 'down' : 'flat';
+    return `<span class="ps-val ${cls}">${v >= 0 ? '+' : ''}${fmt(v, 2)}%</span>`;
+  };
+
+  el.innerHTML = `<div class="perf-strip">
+    <span class="ps-label">📊 Hoje</span>
+    <span class="ps-group">
+      <span class="ps-name">Carteira</span>${val(carteira1D, cdi1d)}
+    </span>
+    <span class="ps-sep">·</span>
+    <span class="ps-group">
+      <span class="ps-name">CDI</span>${val(cdi1d, null)}
+    </span>
+    <span class="ps-sep">·</span>
+    <span class="ps-group">
+      <span class="ps-name">IBOV</span>${val(ibov1D, null)}
+    </span>
+    <span class="ps-sep">│</span>
+    <span class="ps-label">12M</span>
+    <span class="ps-group">
+      <span class="ps-name">Carteira</span>${val(gain12M, cdi12M)}
+    </span>
+    <span class="ps-sep">·</span>
+    <span class="ps-group">
+      <span class="ps-name">CDI</span>${val(cdi12M, null)}
+    </span>
+  </div>`;
 }
 
 // =========================================================
