@@ -5625,7 +5625,24 @@ self.addEventListener('fetch', e => {
             <button class="btn btn-secondary btn-sm" onclick="cfgToggleApiKeyVis()" id="cfgApiKeyEye">👁</button>
           </div>
           <div id="cfgApiKeyStatus" style="font-size:11px;color:var(--text-muted)"></div>
-        
+
+          <div style="margin-top:10px">
+            <div class="config-label" style="font-size:11px;margin-bottom:4px">
+              Modelo Gemini
+              <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener"
+                 style="color:var(--accent-blue);font-weight:400;margin-left:6px">ver modelos disponíveis ↗</a>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input class="config-input" type="text" id="cfgGeminiModel"
+                placeholder="gemini-2.5-flash"
+                style="flex:1;font-family:monospace;font-size:12px">
+              <button class="btn btn-secondary btn-sm" onclick="cfgSaveGeminiModel()">💾 Salvar</button>
+            </div>
+            <div id="cfgGeminiModelStatus" style="font-size:11px;color:var(--text-muted);margin-top:3px">
+              Exemplos: gemini-2.5-flash · gemini-2.0-flash · gemini-2.0-flash-lite
+            </div>
+          </div>
+
           <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
             <span style="font-size:12px;color:var(--text-secondary)">Módulo Forecast</span>
             <label class="toggle-switch" style="margin-left:auto">
@@ -14917,7 +14934,7 @@ Responda de forma objetiva e direta:
 Use no máximo 4 parágrafos curtos e linguagem clara.`;
 
   try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getGeminiModel()}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
@@ -15144,7 +15161,7 @@ async function forecastPergunta() {
 
   const prompt = `Você é um analista financeiro sênior brasileiro especializado em investimentos pessoais. Responda a pergunta do usuário de forma objetiva, personalizada e em português, baseando-se nos dados reais da carteira dele.\n\n${ctx}\n\nPERGUNTA: ${pergunta}\n\nDê uma resposta direta, use os números concretos da carteira, e termine com 1-2 recomendações práticas.`;
 
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = [getGeminiModel(), 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter((v,i,a)=>a.indexOf(v)===i);
   for (const model of models) {
     const result = await new Promise(resolve => {
       const xhr = new XMLHttpRequest();
@@ -18760,7 +18777,7 @@ async function forecastSearch() {
 
   // Tentar Gemini se tiver API key
   if (apiKey) {
-    var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    var models = [getGeminiModel(), 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter((v,i,a)=>a.indexOf(v)===i);
     var geminiResult = null;
     var lastError    = '';
 
@@ -19094,6 +19111,17 @@ function cfgForecastLoadState() {
 function cfgGetApiKey() {
   if (state.anthropicKey) return state.anthropicKey;
   try { return localStorage.getItem('fc_gk') || ''; } catch(_) { return ''; }
+}
+function getGeminiModel() {
+  try { return localStorage.getItem('gemini_model') || 'gemini-2.5-flash'; } catch(_) { return 'gemini-2.5-flash'; }
+}
+function cfgSaveGeminiModel() {
+  const inp = document.getElementById('cfgGeminiModel');
+  const val = (inp ? inp.value.trim() : '') || 'gemini-2.5-flash';
+  try { localStorage.setItem('gemini_model', val); } catch(_) {}
+  const st = document.getElementById('cfgGeminiModelStatus');
+  if (st) { st.textContent = 'Modelo salvo: ' + val; st.style.color = '#10b981'; }
+  showToast('Modelo Gemini: ' + val);
 }
 function cfgSaveApiKey() {
   var inp = document.getElementById('cfgAnthropicKey');
@@ -20182,6 +20210,8 @@ function loadConfigPage() {
   if (_ki && _ak) _ki.value = _ak;
   var _ks = document.getElementById('cfgApiKeyStatus');
   if (_ks && _ak) { _ks.textContent = 'Chave configurada'; _ks.style.color = '#10b981'; }
+  var _gm = document.getElementById('cfgGeminiModel');
+  if (_gm) _gm.value = getGeminiModel();
   cfgForecastLoadState();
 }
 
