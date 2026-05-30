@@ -2727,6 +2727,35 @@ select option { background:var(--bg-card); }
 .fund-footer { font-size:10px; color:var(--text-muted); padding-top:6px; border-top:1px solid var(--border); }
 .fund-btn-active { background:rgba(59,130,246,0.15) !important; color:var(--accent-blue) !important; }
 
+/* ── AGENDA DE DIVIDENDOS ── */
+.agenda-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+@media(max-width:700px){ .agenda-kpis { grid-template-columns:1fr 1fr; } }
+.agenda-kpi { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+.agenda-kpi-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.agenda-kpi-val { font-family:var(--mono); font-weight:800; font-size:20px; color:var(--text-primary); }
+.agenda-kpi-sub  { font-size:11px; color:var(--text-muted); margin-top:3px; }
+.agenda-filters { display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.agenda-filter-btn { padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg-card); color:var(--text-secondary); transition:.15s; }
+.agenda-filter-btn.active { background:var(--accent-blue); color:#fff; border-color:var(--accent-blue); }
+.agenda-month-group { margin-bottom:20px; }
+.agenda-month-header { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:var(--bg-input); border-radius:8px; margin-bottom:8px; }
+.agenda-month-title { font-weight:700; font-size:13px; color:var(--text-primary); }
+.agenda-month-total { font-family:var(--mono); font-weight:700; font-size:13px; color:#10b981; }
+.agenda-item { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; flex-wrap:wrap; }
+.agenda-item-ticker { font-weight:800; font-size:14px; min-width:72px; }
+.agenda-item-tipo { font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; }
+.agenda-tipo-fii  { background:rgba(16,185,129,.15); color:#10b981; }
+.agenda-tipo-acao { background:rgba(59,130,246,.15); color:#3b82f6; }
+.agenda-tipo-etf  { background:rgba(139,92,246,.15); color:#8b5cf6; }
+.agenda-item-dates { flex:1; min-width:160px; }
+.agenda-date-row { font-size:11px; color:var(--text-secondary); display:flex; gap:10px; }
+.agenda-date-label { color:var(--text-muted); min-width:28px; }
+.agenda-item-amount { text-align:right; }
+.agenda-amount-unit { font-size:11px; color:var(--text-muted); }
+.agenda-amount-total { font-family:var(--mono); font-weight:700; font-size:14px; color:var(--text-primary); }
+.agenda-badge-proj { font-size:9px; padding:2px 6px; border-radius:8px; background:rgba(245,158,11,.12); color:#f59e0b; font-weight:700; }
+.agenda-badge-conf { font-size:9px; padding:2px 6px; border-radius:8px; background:rgba(16,185,129,.12); color:#10b981; font-weight:700; }
+
 /* ── GRAHAM CALCULATOR & TABLE ── */
 .graham-result { background:var(--bg-primary); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
 .graham-price  { font-family:var(--mono); font-weight:800; font-size:28px; color:var(--text-primary); }
@@ -2877,6 +2906,9 @@ self.addEventListener('fetch', e => {
       </div>
       <div class="nav-item" onclick="showPage('proventos')">
         <span class="icon">💵</span> Proventos
+      </div>
+      <div class="nav-item" onclick="showPage('agenda')">
+        <span class="icon">📅</span> Agenda Div.
       </div>
       <div class="nav-item" onclick="showPage('forecast')">
         <span class="icon">🔮</span> Forecast
@@ -3038,6 +3070,12 @@ self.addEventListener('fetch', e => {
           <div class="metric-label">Proventos (Mês)</div>
           <div class="metric-value" id="proventosMes">R$ 0,00</div>
           <div class="metric-sub">Dividendos + Juros</div>
+        </div>
+        <div class="metric-card purple">
+          <div class="metric-icon">🏠</div>
+          <div class="metric-label">Cobertura de Gastos</div>
+          <div class="metric-value" id="coberturaGastos">—</div>
+          <div class="metric-sub" id="coberturaGastosSub">Renda passiva ÷ despesas</div>
         </div>
       </div>
 
@@ -3402,6 +3440,60 @@ self.addEventListener('fetch', e => {
 
     </div>
 
+    <!-- ==================== AGENDA DE DIVIDENDOS ==================== -->
+    <div class="page" id="page-agenda">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">📅 Agenda de Dividendos</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="agendaStatus" style="font-size:11px;color:var(--text-muted)"></span>
+          <button class="btn btn-secondary btn-sm" onclick="renderAgenda(true)">🔄 Atualizar</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="agenda-kpis">
+        <div class="agenda-kpi">
+          <div class="agenda-kpi-label">💰 Total estimado 12M</div>
+          <div class="agenda-kpi-val" id="agKpi12M">—</div>
+          <div class="agenda-kpi-sub" id="agKpi12MSub">baseado no histórico</div>
+        </div>
+        <div class="agenda-kpi">
+          <div class="agenda-kpi-label">📆 Mês atual</div>
+          <div class="agenda-kpi-val" id="agKpiMes">—</div>
+          <div class="agenda-kpi-sub" id="agKpiMesSub">proventos previstos</div>
+        </div>
+        <div class="agenda-kpi">
+          <div class="agenda-kpi-label">📊 Média mensal</div>
+          <div class="agenda-kpi-val" id="agKpiMedia">—</div>
+          <div class="agenda-kpi-sub">estimada para 12M</div>
+        </div>
+        <div class="agenda-kpi">
+          <div class="agenda-kpi-label">⏳ Próximo evento</div>
+          <div class="agenda-kpi-val" id="agKpiProximo">—</div>
+          <div class="agenda-kpi-sub" id="agKpiProximoSub"></div>
+        </div>
+      </div>
+
+      <!-- Filtros de horizonte -->
+      <div class="agenda-filters">
+        <span style="font-size:12px;color:var(--text-muted);font-weight:600">Horizonte:</span>
+        <button class="agenda-filter-btn" data-months="3"  onclick="agendaSetHorizonte(3,this)">3 meses</button>
+        <button class="agenda-filter-btn active" data-months="6" onclick="agendaSetHorizonte(6,this)">6 meses</button>
+        <button class="agenda-filter-btn" data-months="12" onclick="agendaSetHorizonte(12,this)">12 meses</button>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">
+          ✅ Confirmado &nbsp;·&nbsp; <span style="color:#f59e0b">⚡ Projetado</span> com base no histórico
+        </span>
+      </div>
+
+      <!-- Conteúdo dinâmico -->
+      <div id="agendaContent">
+        <div class="empty-state" style="padding:40px">
+          <div class="empty-icon">📅</div>
+          Carregando agenda de dividendos…
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== DISTRIBUIÇÃO ==================== -->
     <div class="page" id="page-distribuicao">
       <div class="section-title">🧩 Distribuição da Carteira</div>
@@ -3589,7 +3681,7 @@ self.addEventListener('fetch', e => {
           <div class="metric-icon">📊</div>
           <div class="metric-label">Yield on Cost</div>
           <div class="metric-value" id="yieldOnCost">0,00%</div>
-          <div class="metric-sub">Sobre custo médio</div>
+          <div class="metric-sub" id="yocSub">Últ. 12M ÷ custo médio</div>
         </div>
         <div class="metric-card purple">
           <div class="metric-icon">🔮</div>
@@ -7488,6 +7580,28 @@ function updateDashboard() {
     .reduce((s, p) => s + p.valorUnit * p.qtd, 0);
   (document.getElementById('proventosMes')||{}).textContent = fmtR(proventosMes);
 
+  // Cobertura de Gastos — renda passiva últimos 12M vs despesas últimos 12M
+  const _cutoff = new Date(); _cutoff.setFullYear(_cutoff.getFullYear()-1);
+  const _prov12M = state.proventos
+    .filter(p => new Date(p.data+'T12:00:00') >= _cutoff)
+    .reduce((s,p) => s+p.valorUnit*p.qtd, 0);
+  const _gastos12M = ((state.gastos||{}).transacoes||[])
+    .filter(t => t.tipo==='despesa' && new Date(t.mes+'-01') >= _cutoff)
+    .reduce((s,t) => s+(t.valor||0), 0);
+  const _coberturaEl  = document.getElementById('coberturaGastos');
+  const _coberturaSubEl = document.getElementById('coberturaGastosSub');
+  if (_coberturaEl) {
+    if (_gastos12M > 0) {
+      const _pct = Math.min(_prov12M / _gastos12M * 100, 999);
+      _coberturaEl.textContent = fmt(_pct, 1) + '%';
+      _coberturaEl.className = 'metric-value ' + (_pct >= 100 ? 'up' : _pct >= 50 ? '' : 'down');
+      if (_coberturaSubEl) _coberturaSubEl.textContent = `R$ ${fmt(_prov12M/12,0)}/mês vs R$ ${fmt(_gastos12M/12,0)}/mês`;
+    } else {
+      _coberturaEl.textContent = '—';
+      if (_coberturaSubEl) _coberturaSubEl.textContent = 'Cadastre gastos para calcular';
+    }
+  }
+
   // Benchmarks — online via fetchBenchmarks (atualiza separado)
   renderBenchmarkCards();
 
@@ -7731,9 +7845,12 @@ function renderProventosKPIs() {
     : mesProvs;
   const totalMes = mesBanco.reduce((s,p)=>s+p.valorUnit*p.qtd,0);
 
-  // Yield on Cost
-  const patrimRV = state.ativos.filter(a=>a.categoria==='rv').reduce((s,a)=>s+a.qtd*a.precoMedio,0);
-  const yoc = patrimRV>0 ? (total/patrimRV*100) : 0;
+  // Yield on Cost — últimos 12 meses vs custo médio RV
+  const cutoff12M = new Date(); cutoff12M.setFullYear(cutoff12M.getFullYear()-1);
+  const prov12M   = state.proventos.filter(p => new Date(p.data+'T12:00:00') >= cutoff12M)
+                                    .reduce((s,p) => s+p.valorUnit*p.qtd, 0);
+  const custoBrutoRV = state.ativos.filter(a=>a.categoria==='rv').reduce((s,a)=>s+a.qtd*a.precoMedio,0);
+  const yoc = custoBrutoRV>0 ? (prov12M/custoBrutoRV*100) : 0;
 
   // Projeção anual (média mensal dos últimos 6 meses × 12)
   const ultimos6 = Array.from({length:6}, (_,i)=>{
@@ -9587,7 +9704,8 @@ const pageTitles = {
   ir: '📊 IR — Imposto de Renda',
   simulador: '🧮 Simulador',
   timeline: '📅 Timeline de Eventos',
-  metas: '🎯 Metas Financeiras'
+  metas: '🎯 Metas Financeiras',
+  agenda: '📅 Agenda de Dividendos'
 };
 
 function showPage(id) {
@@ -9630,6 +9748,7 @@ function showPage(id) {
     if (id === 'ir')        { irRenderAll(); irCheckTaxaStatus(); }
     if (id === 'timeline')  { renderTimeline(); }
     if (id === 'metas')     { renderMetas(); }
+    if (id === 'agenda')    { renderAgenda(); }
     if (id === 'dashboard') { renderMultiperiodo(); }
   }, 50);
 }
@@ -10550,6 +10669,7 @@ function switchSimTab(el) {
   if (panel) panel.style.display = 'block';
   if (tab === 'rendimento') simRendimento();
   if (tab === 'fire')       calcFIRE();
+  if (tab === 'graham')     grahamAnalisarCarteira();
 }
 
 function switchSimTabById(tabId) {
@@ -14738,6 +14858,27 @@ async function fetchFundamentals(ticker) {
   }
 }
 
+function _calcScoreAtivo(q) {
+  const pl  = q.priceEarnings ?? q.trailingPE ?? null;
+  const pvp = q.priceToBook   ?? q.priceBookValue ?? null;
+  const dy  = q.dividendYield ?? null;
+  const roe = q.returnOnEquity ?? null;
+  const mg  = q.netMargin     ?? null;
+
+  let score = 0, maxPts = 0;
+  if (pl  != null) { maxPts += 2; if (pl > 0 && pl <= 15) score += 2; else if (pl > 0 && pl <= 25) score += 1; }
+  if (pvp != null) { maxPts += 2; if (pvp > 0 && pvp <= 1.5) score += 2; else if (pvp > 0 && pvp <= 3) score += 1; }
+  if (dy  != null) { maxPts += 2; if (dy >= 0.06) score += 2; else if (dy >= 0.03) score += 1; }
+  if (roe != null) { maxPts += 2; if (roe >= 0.15) score += 2; else if (roe >= 0.08) score += 1; }
+  if (mg  != null) { maxPts += 2; if (mg  >= 0.15) score += 2; else if (mg  >= 0.05) score += 1; }
+
+  if (maxPts === 0) return null;
+  const normalized = Math.round(score / maxPts * 10);
+  const color = normalized >= 7 ? '#10b981' : normalized >= 4 ? '#f59e0b' : '#ef4444';
+  const label = normalized >= 7 ? 'Ótimo' : normalized >= 4 ? 'Regular' : 'Fraco';
+  return { score: normalized, color, label, detail: `${score}/${maxPts} pts` };
+}
+
 function _renderFundPanel(panel, ticker, q) {
   if (!panel) return;
 
@@ -14792,24 +14933,269 @@ function _renderFundPanel(panel, ticker, q) {
     </div>`;
   };
 
-  const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  const now   = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  const score = _calcScoreAtivo(q);
+  const scoreBadge = score
+    ? `<div style="display:inline-flex;align-items:center;gap:5px;background:${score.color}1a;border:1px solid ${score.color}40;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;color:${score.color}" title="${score.detail}">
+        ⭐ Score ${score.score}/10 — ${score.label}
+      </div>`
+    : '';
 
   panel.innerHTML = `
-    <div class="fund-chips">
-      ${chip('P/L',    multFmt(pl),  plColor)}
-      ${chip('P/VP',   multFmt(pvp), pvpColor)}
-      ${chip('DY',     pctFmt(dy),   dyColor)}
-      ${chip('ROE',    pctFmt(roe),  roeColor)}
-      ${chip('Margem', pctFmt(mg),   mgColor)}
-      ${lpa  != null ? chip('LPA', 'R$ ' + fmt(lpa, 2),  '') : ''}
-      ${vpa  != null ? chip('VPA', 'R$ ' + fmt(vpa, 2),  '') : ''}
-      ${chip('Mkt Cap', capFmt(mktcap), '')}
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <div class="fund-chips" style="margin-bottom:0">
+        ${chip('P/L',    multFmt(pl),  plColor)}
+        ${chip('P/VP',   multFmt(pvp), pvpColor)}
+        ${chip('DY',     pctFmt(dy),   dyColor)}
+        ${chip('ROE',    pctFmt(roe),  roeColor)}
+        ${chip('Margem', pctFmt(mg),   mgColor)}
+        ${lpa  != null ? chip('LPA', 'R$ ' + fmt(lpa, 2),  '') : ''}
+        ${vpa  != null ? chip('VPA', 'R$ ' + fmt(vpa, 2),  '') : ''}
+        ${chip('Mkt Cap', capFmt(mktcap), '')}
+      </div>
+      ${scoreBadge}
     </div>
     ${(graham || bazin) ? `<div class="fund-valuation">
       ${valCard('Graham',  '√(22,5 × LPA × VPA)', graham)}
       ${valCard('Bazin', 'DPA ÷ 6%', bazin)}
     </div>` : '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">⚠️ LPA ou VPA indisponível — Graham e Bazin não calculados.</div>'}
     <div class="fund-footer">📡 Brapi · ${ticker} · ${now} · Valores baseados nos últimos dados fundamentalistas disponíveis</div>`;
+}
+
+// =========================================================
+// AGENDA DE DIVIDENDOS — projeção futura por ativo
+// =========================================================
+const agendaCache   = {};     // ticker → { dividends:[], ts }
+let   _agendaMeses  = 6;      // horizonte atual
+
+function agendaSetHorizonte(meses, btn) {
+  _agendaMeses = meses;
+  document.querySelectorAll('.agenda-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _agendaRenderFromCache();
+}
+
+async function renderAgenda(forceRefresh) {
+  const el = document.getElementById('agendaContent');
+  if (!el) return;
+
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  if (!rvAtivos.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px">
+      <div class="empty-icon">📋</div>
+      Nenhum ativo de Renda Variável na carteira.
+    </div>`;
+    return;
+  }
+
+  const status = document.getElementById('agendaStatus');
+  if (status) status.textContent = '⏳ Buscando…';
+
+  el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-muted);font-size:13px">
+    <div style="width:22px;height:22px;border:2px solid var(--accent-blue);border-top-color:transparent;
+      border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:10px;vertical-align:middle"></div>
+    Buscando histórico de dividendos para <strong>${rvAtivos.length}</strong> ativos…
+  </div>`;
+
+  await _agendaFetchAll(rvAtivos, forceRefresh);
+
+  const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  if (status) status.textContent = `✅ ${now}`;
+
+  _agendaRenderFromCache();
+}
+
+async function _agendaFetchAll(ativos, forceRefresh) {
+  const token = getBrapiToken();
+  for (const a of ativos) {
+    const cached = agendaCache[a.ticker];
+    if (!forceRefresh && cached && Date.now() - cached.ts < 3600000) continue;
+    try {
+      const url  = `https://brapi.dev/api/quote/${encodeURIComponent(a.ticker)}?dividends=true&fundamental=false${token ? '&token='+token : '&token=demo'}`;
+      const resp = await fetch(url, { signal: mkAbort(12000) });
+      const json = await resp.json();
+      const q    = (json.results || [])[0];
+      const divs = ((q?.dividendsData?.cashDividends) || [])
+        .filter(d => d.lastDatePrior && parseFloat(d.rate) > 0)
+        .map(d => ({
+          exDate:  new Date(d.lastDatePrior + 'T12:00:00'),
+          payDate: d.paymentDate ? new Date(d.paymentDate + 'T12:00:00') : null,
+          rate:    parseFloat(d.rate),
+          label:   d.label || 'Rendimento',
+        }))
+        .sort((a, b) => b.exDate - a.exDate);
+      agendaCache[a.ticker] = { dividends: divs, ts: Date.now() };
+    } catch(e) {
+      if (!agendaCache[a.ticker]) agendaCache[a.ticker] = { dividends: [], ts: Date.now() };
+    }
+  }
+}
+
+function _agendaProject(ativos) {
+  const today   = new Date(); today.setHours(0,0,0,0);
+  const horizon = new Date(today);
+  horizon.setMonth(horizon.getMonth() + _agendaMeses);
+
+  const events = [];
+
+  for (const a of ativos) {
+    const divs = (agendaCache[a.ticker] || {}).dividends || [];
+
+    // Confirmed future dividends from API (ex-date still in future)
+    for (const d of divs) {
+      if (d.exDate >= today && d.exDate <= horizon) {
+        events.push({ ticker:a.ticker, tipo:a.tipo, qtd:a.qtd,
+          exDate:d.exDate, payDate:d.payDate, rate:d.rate,
+          total:d.rate*a.qtd, label:d.label, projected:false });
+      }
+    }
+
+    // Need at least 2 historical payments to project
+    const past = divs.filter(d => d.exDate < today);
+    if (past.length < 2) continue;
+
+    // Average interval between last 6 payments
+    const sample = past.slice(0, 6);
+    let sumInterval = 0;
+    for (let i = 0; i < sample.length - 1; i++)
+      sumInterval += (sample[i].exDate - sample[i+1].exDate) / 86400000;
+    const avgInterval = Math.round(sumInterval / (sample.length - 1));
+    if (avgInterval < 5) continue; // sanity check
+
+    // Average rate from last 3 payments
+    const avgRate = sample.slice(0,3).reduce((s,d) => s+d.rate, 0) / Math.min(3, sample.length);
+
+    // Average pay lag (ex-date → payment-date)
+    const withPay = sample.filter(d => d.payDate);
+    const avgLag  = withPay.length
+      ? Math.round(withPay.reduce((s,d) => s + (d.payDate-d.exDate)/86400000, 0) / withPay.length)
+      : 12;
+
+    // Project forward from most recent past ex-date
+    let nextEx = new Date(past[0].exDate);
+    nextEx.setDate(nextEx.getDate() + avgInterval);
+
+    while (nextEx <= horizon) {
+      if (nextEx >= today) {
+        // Skip if already have a confirmed event within 10 days for this ticker
+        const clash = events.find(e => e.ticker === a.ticker && Math.abs(e.exDate - nextEx) < 10*86400000);
+        if (!clash) {
+          const payDate = new Date(nextEx);
+          payDate.setDate(payDate.getDate() + avgLag);
+          events.push({ ticker:a.ticker, tipo:a.tipo, qtd:a.qtd,
+            exDate: new Date(nextEx), payDate,
+            rate: avgRate, total: avgRate * a.qtd,
+            label:'Rendimento (proj.)', projected:true });
+        }
+      }
+      nextEx = new Date(nextEx);
+      nextEx.setDate(nextEx.getDate() + avgInterval);
+    }
+  }
+
+  return events.sort((a, b) => a.exDate - b.exDate);
+}
+
+function _agendaRenderFromCache() {
+  const el = document.getElementById('agendaContent');
+  if (!el) return;
+
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  const events   = _agendaProject(rvAtivos);
+
+  // KPIs
+  const today = new Date(); today.setHours(0,0,0,0);
+  const all12M = _agendaProject((() => { const tmp = _agendaMeses; _agendaMeses = 12; return rvAtivos; })());
+  _agendaMeses = _agendaMeses; // restore (project already used global)
+
+  // Reproject at 12M for KPIs regardless of filter
+  const savedMes = _agendaMeses;
+  _agendaMeses = 12;
+  const events12M = _agendaProject(rvAtivos);
+  _agendaMeses = savedMes;
+
+  const total12M = events12M.reduce((s,e) => s+e.total, 0);
+  const mesAtual = events12M.filter(e => e.exDate.getMonth()===today.getMonth() && e.exDate.getFullYear()===today.getFullYear());
+  const totalMes = mesAtual.reduce((s,e) => s+e.total, 0);
+  const avgMensal = total12M / 12;
+  const next      = events[0];
+
+  const fmtDate = d => d ? d.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'}) : '—';
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  document.getElementById('agKpi12M').textContent    = fmtR(total12M);
+  document.getElementById('agKpi12MSub').textContent = `${events12M.length} eventos projetados`;
+  document.getElementById('agKpiMes').textContent    = fmtR(totalMes);
+  document.getElementById('agKpiMesSub').textContent = `${mesAtual.length} evento(s) em ${monthNames[today.getMonth()]}`;
+  document.getElementById('agKpiMedia').textContent  = fmtR(avgMensal);
+  document.getElementById('agKpiProximo').textContent = next ? next.ticker : '—';
+  document.getElementById('agKpiProximoSub').textContent = next
+    ? `Ex: ${fmtDate(next.exDate)} · R$ ${fmt(next.total)}`
+    : 'Nenhum identificado';
+
+  if (!events.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px">
+      <div class="empty-icon">📅</div>
+      Nenhum provento identificado nos próximos ${_agendaMeses} meses.<br>
+      <span style="font-size:12px;color:var(--text-muted)">Verifique se os ativos possuem histórico de dividendos no Brapi.</span>
+    </div>`;
+    return;
+  }
+
+  // Group by month
+  const byMonth = {};
+  for (const e of events) {
+    const key = `${e.exDate.getFullYear()}-${String(e.exDate.getMonth()+1).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(e);
+  }
+
+  const tipoClass = t => t==='FII' ? 'agenda-tipo-fii' : t==='ETF' ? 'agenda-tipo-etf' : 'agenda-tipo-acao';
+  const tipoLabel = t => t==='FII' ? 'FII' : t==='ETF' ? 'ETF' : 'AÇÃO';
+
+  el.innerHTML = Object.entries(byMonth).map(([key, evts]) => {
+    const [year, month] = key.split('-');
+    const monthTotal    = evts.reduce((s,e) => s+e.total, 0);
+    const monthLabel    = `${monthNames[parseInt(month)-1]} ${year}`;
+    const isCurrentMonth = parseInt(month)-1 === today.getMonth() && parseInt(year) === today.getFullYear();
+
+    const rows = evts.map(e => {
+      const daysToEx  = Math.ceil((e.exDate - today) / 86400000);
+      const countdown = daysToEx === 0 ? '<span style="color:#f59e0b;font-weight:700">Hoje!</span>'
+                      : daysToEx === 1 ? '<span style="color:#f59e0b">Amanhã</span>'
+                      : `<span style="color:var(--text-muted)">${daysToEx}d</span>`;
+
+      return `<div class="agenda-item">
+        <div class="agenda-item-ticker">${e.ticker}</div>
+        <span class="agenda-item-tipo ${tipoClass(e.tipo)}">${tipoLabel(e.tipo)}</span>
+        <div class="agenda-item-dates">
+          <div class="agenda-date-row">
+            <span class="agenda-date-label">Ex:</span>
+            <strong>${fmtDate(e.exDate)}</strong>
+            <span style="margin-left:4px">${countdown}</span>
+          </div>
+          <div class="agenda-date-row" style="margin-top:2px">
+            <span class="agenda-date-label">Pgto:</span>
+            <span>${e.payDate ? fmtDate(e.payDate) : '—'}</span>
+            <span style="margin-left:6px;font-size:10px;color:var(--text-muted)">${e.label}</span>
+          </div>
+        </div>
+        <div class="agenda-item-amount">
+          <div class="agenda-amount-unit">R$ ${fmt(e.rate,4)}/unit × ${fmt(e.qtd,0)}</div>
+          <div class="agenda-amount-total">${fmtR(e.total)}</div>
+        </div>
+        <span class="${e.projected ? 'agenda-badge-proj' : 'agenda-badge-conf'}">${e.projected ? '⚡ Proj.' : '✅ Conf.'}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="agenda-month-group">
+      <div class="agenda-month-header" style="${isCurrentMonth ? 'border-left:3px solid var(--accent-blue);' : ''}">
+        <span class="agenda-month-title">${isCurrentMonth ? '▶ ' : ''}${monthLabel}</span>
+        <span class="agenda-month-total">${fmtR(monthTotal)}</span>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
 }
 
 // =========================================================
@@ -14981,23 +15367,28 @@ async function _grahamFetchAll(tickers) {
 }
 
 function _grahamExtract(q) {
-  const price = q.regularMarketPrice ?? null;
-  const pl    = q.priceEarnings      ?? null;
-  const pvp   = q.priceToBook        ?? null;
+  const price = q.regularMarketPrice ?? q.currentPrice ?? null;
+  // P/L: Brapi pode usar priceEarnings, trailingPE ou peRatio
+  const pl  = q.priceEarnings ?? q.trailingPE ?? q.peRatio ?? null;
+  // P/VP: Brapi pode usar priceToBook, priceBookValue ou pbRatio
+  const pvp = q.priceToBook   ?? q.priceBookValue ?? q.pbRatio ?? null;
 
-  // Brapi raramente devolve earningsPerShare/bookValuePerShare diretamente;
-  // derivamos de P/L e P/VP quando disponíveis e price > 0
-  const lpa = (q.earningsPerShare  != null) ? q.earningsPerShare
-            : (price > 0 && pl  > 0)        ? price / pl
+  // LPA/VPA: prefere campos diretos, deriva de ratios como fallback
+  const lpa = (q.earningsPerShare  != null && q.earningsPerShare  > 0) ? q.earningsPerShare
+            : (price > 0 && pl  > 0) ? price / pl
             : null;
-  const vpa = (q.bookValuePerShare != null) ? q.bookValuePerShare
-            : (price > 0 && pvp > 0)        ? price / pvp
+  const vpa = (q.bookValuePerShare != null && q.bookValuePerShare > 0) ? q.bookValuePerShare
+            : (price > 0 && pvp > 0) ? price / pvp
             : null;
+
+  const hasFundamentals = pl != null || pvp != null || q.returnOnEquity != null;
 
   return {
     lpa, vpa, price, pl, pvp,
     graham: (lpa > 0 && vpa > 0) ? Math.sqrt(22.5 * lpa * vpa) : null,
     dy: q.dividendYield ?? null,
+    hasFundamentals,
+    noToken: !hasFundamentals && price != null,
   };
 }
 
@@ -15016,19 +15407,29 @@ function _grahamBuildTable(ativos, results) {
     const r     = results[a.ticker];
     const price = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[a.ticker]?.price) || a.precoMedio;
     if (!r || r.graham == null) {
+      const reason = !r ? 'Erro na busca'
+        : r.noToken   ? 'Configure token Brapi'
+        : !r.hasFundamentals ? 'Sem P/L ou P/VP'
+        : (r.pl != null && r.pl <= 0) ? 'Empresa em prejuízo'
+        : 'LPA ou VPA indisponível';
       return `<tr>
         <td><strong>${a.ticker}</strong></td>
         <td class="mono">R$ ${fmt(price)}</td>
-        <td class="mono" style="color:var(--text-muted)">—</td>
-        <td class="mono" style="color:var(--text-muted)">—</td>
+        <td class="mono" style="color:var(--text-muted)">${r?.lpa != null ? 'R$ '+fmt(r.lpa,2) : '—'}</td>
+        <td class="mono" style="color:var(--text-muted)">${r?.vpa != null ? 'R$ '+fmt(r.vpa,2) : '—'}</td>
         <td class="mono" style="color:var(--text-muted)">—</td>
         <td style="color:var(--text-muted)">—</td>
-        <td style="color:var(--text-muted);font-size:11px">Dados indisponíveis</td>
+        <td style="color:var(--text-muted);font-size:11px" title="${reason}">⚠️ ${reason}</td>
+        <td style="color:var(--text-muted)">—</td>
       </tr>`;
     }
     const upside = (r.graham / price - 1) * 100;
     const uCls   = upside > 10 ? 'fund-signal-buy' : upside < -10 ? 'fund-signal-sell' : 'fund-signal-neutral';
     const signal = upside > 10 ? '✅ Desconto' : upside < -10 ? '🔴 Acima' : '🟡 Neutro';
+    const sc = fundamentalsCache[a.ticker]?.data ? _calcScoreAtivo(fundamentalsCache[a.ticker].data) : null;
+    const scoreTd = sc
+      ? `<td><span style="font-size:11px;font-weight:700;color:${sc.color}" title="${sc.detail}">⭐ ${sc.score}/10</span></td>`
+      : '<td style="color:var(--text-muted)">—</td>';
     return `<tr>
       <td><strong>${a.ticker}</strong></td>
       <td class="mono">R$ ${fmt(price)}</td>
@@ -15037,6 +15438,7 @@ function _grahamBuildTable(ativos, results) {
       <td class="mono" style="font-weight:700">R$ ${fmt(r.graham)}</td>
       <td class="mono ${uCls}" style="font-weight:700">${upside>=0?'+':''}${fmt(upside,1)}%</td>
       <td><span class="${uCls}" style="font-size:12px;font-weight:600">${signal}</span></td>
+      ${scoreTd}
     </tr>`;
   }).join('');
 
@@ -15053,12 +15455,13 @@ function _grahamBuildTable(ativos, results) {
   </div>
   <div style="overflow-x:auto"><table class="graham-cart-table">
     <thead><tr>
-      <th>Ticker</th><th>Cotação</th><th>LPA</th><th>VPA</th><th>Graham</th><th>Upside</th><th>Sinal</th>
+      <th>Ticker</th><th>Cotação</th><th>LPA</th><th>VPA</th><th>Graham</th><th>Upside</th><th>Sinal</th><th>Score</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>
   <div style="font-size:10px;color:var(--text-muted);padding:8px 14px;border-top:1px solid var(--border)">
     📡 Brapi · Graham = √(22,5 × LPA × VPA) · Ordenado por maior desconto · Cache 1h
+    ${comDados.length === 0 ? ' · <span style="color:#f59e0b">⚠️ Nenhum dado fundamental retornado — configure seu token Brapi em ⚙️ Configurações</span>' : ''}
   </div>`;
 }
 
