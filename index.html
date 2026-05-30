@@ -3171,25 +3171,34 @@ self.addEventListener('fetch', e => {
           <div class="benchmark-icon" style="background:rgba(239,68,68,0.15)">🏛️</div>
           <div>
             <div class="benchmark-name">IBOVESPA</div>
-            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span class="bench-live-dot off" id="ibovDot"></span><span id="ibovVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span></div>
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+              <span class="bench-live-dot off" id="ibovDot"></span>
+              <span id="ibovVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span>
+            </div>
+            <div class="bench-val-sub" id="ibovPts" style="font-size:12px;font-weight:600;font-family:var(--mono);margin-bottom:1px">— pts</div>
             <div class="bench-val-sub" id="ibovSub">carregando...</div>
-            <div class="benchmark-period">No Mês</div>
           </div>
         </div>
         <div class="benchmark-card">
           <div class="benchmark-icon" style="background:rgba(16,185,129,0.15)">💹</div>
           <div>
-            <div class="benchmark-name">CDI</div>
-            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span class="bench-live-dot off" id="cdiDot"></span><span id="cdiVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span></div>
+            <div class="benchmark-name">CDI / SELIC</div>
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+              <span class="bench-live-dot off" id="cdiDot"></span>
+              <span id="cdiVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span>
+            </div>
             <div class="bench-val-sub" id="cdiSub">carregando...</div>
-            <div class="benchmark-period">No Mês</div>
+            <div class="benchmark-period" id="cdiPeriod">a.m. | Fonte: BCB</div>
           </div>
         </div>
         <div class="benchmark-card">
           <div class="benchmark-icon" style="background:rgba(245,158,11,0.15)">💵</div>
           <div>
             <div class="benchmark-name">USD/BRL</div>
-            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span class="bench-live-dot off" id="dolarDot"></span><span id="dolarVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span></div>
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+              <span class="bench-live-dot off" id="dolarDot"></span>
+              <span id="dolarVal" style="font-size:14px;font-weight:800;font-family:var(--mono)">—</span>
+            </div>
             <div class="bench-val-sub" id="dolarSub">carregando...</div>
             <div class="benchmark-period">Cotação Atual</div>
           </div>
@@ -3802,6 +3811,7 @@ self.addEventListener('fetch', e => {
           <button class="btn btn-primary" onclick="openModal('add')">➕ Incluir Ativo</button>
           <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Excel</button>
           <button class="btn btn-secondary btn-sm" onclick="exportPDF()">📄 PDF</button>
+          <button class="btn btn-secondary btn-sm" onclick="openB3Import()" style="border-color:#10b981;color:#10b981" title="Importar posição ou movimentação CSV do Portal B3">🇧🇷 Importar B3</button>
         </div>
       </div>
       <div id="perfStrip-ativos"></div>
@@ -15474,21 +15484,28 @@ function renderPerfStrip(pageId) {
 
   const patrimonio = calcPatrimonio();
   const custo      = calcCustoTotal();
-  const gain12M    = custo > 0 ? (patrimonio - custo) / custo * 100 : 0;
+  const gainAcum   = custo > 0 ? (patrimonio - custo) / custo * 100 : 0;
 
+  // Carteira 1D — média ponderada por valor de mercado dos ativos RV
   const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
-  let carteira1D = 0, count1D = 0;
-  rvAtivos.forEach(a => { const c = getChgPct(a.ticker); if (c !== null) { carteira1D += c; count1D++; } });
-  carteira1D = count1D > 0 ? carteira1D / count1D : 0;
+  let carteira1D = 0, pesoTotal = 0;
+  rvAtivos.forEach(a => {
+    const c = getChgPct(a.ticker);
+    const peso = a.qtd * (getCotacao(a.ticker, a.precoMedio) || a.precoMedio);
+    if (c !== null && peso > 0) { carteira1D += c * peso; pesoTotal += peso; }
+  });
+  carteira1D = pesoTotal > 0 ? carteira1D / pesoTotal : 0;
 
-  const cdi1d  = CDI_ANUAL / 252;
-  const cdi12M = CDI_ANUAL;
+  const cdi1d  = CDI_ANUAL / 252;  // taxa diária
+  const cdiAA  = CDI_ANUAL;        // taxa anual (para seção Acum.)
   const bvsp   = (typeof mercadoLiveData !== 'undefined') && (mercadoLiveData['BVSP'] || mercadoLiveData['IBOV']);
+  const smll   = (typeof mercadoLiveData !== 'undefined') && (mercadoLiveData['SMLL'] || mercadoLiveData['SMLL11']);
   const ibov1D = bvsp ? bvsp.chg : null;
+  const smll1D = smll ? smll.chg : null;
 
   const val = (v, ref) => {
     if (v === null) return `<span class="ps-val flat">—</span>`;
-    const cls = v > ref ? 'up' : v < ref ? 'down' : 'flat';
+    const cls = ref != null ? (v > ref ? 'up' : v < ref ? 'down' : 'flat') : (v >= 0 ? 'up' : 'down');
     return `<span class="ps-val ${cls}">${v >= 0 ? '+' : ''}${fmt(v, 2)}%</span>`;
   };
 
@@ -15499,20 +15516,24 @@ function renderPerfStrip(pageId) {
     </span>
     <span class="ps-sep">·</span>
     <span class="ps-group">
-      <span class="ps-name">CDI</span>${val(cdi1d, null)}
-    </span>
-    <span class="ps-sep">·</span>
-    <span class="ps-group">
       <span class="ps-name">IBOV</span>${val(ibov1D, null)}
     </span>
-    <span class="ps-sep">│</span>
-    <span class="ps-label">12M</span>
-    <span class="ps-group">
-      <span class="ps-name">Carteira</span>${val(gain12M, cdi12M)}
-    </span>
     <span class="ps-sep">·</span>
     <span class="ps-group">
-      <span class="ps-name">CDI</span>${val(cdi12M, null)}
+      <span class="ps-name">CDI/d</span>${val(cdi1d, null)}
+    </span>
+    ${smll1D !== null ? `<span class="ps-sep">·</span>
+    <span class="ps-group">
+      <span class="ps-name">SMLL</span>${val(smll1D, null)}
+    </span>` : ''}
+    <span class="ps-sep">│</span>
+    <span class="ps-label">Acum.</span>
+    <span class="ps-group">
+      <span class="ps-name">Carteira</span>${val(gainAcum, cdiAA)}
+    </span>
+    <span class="ps-sep">·</span>
+    <span class="ps-group" title="CDI anual estimado — referência para o acumulado">
+      <span class="ps-name">CDI a.a.</span>${val(cdiAA, null)}
     </span>
   </div>`;
 }
@@ -18919,30 +18940,10 @@ async function fetchBenchmarks() {
       }
     } catch(_) {}
 
-    // ── IBOV via brapi (token demo funciona para ações, não índice)
-    //    Tentativa 1: brapi com símbolo sem ^
-    //    Tentativa 2: fallback para mercadoLiveData se disponível
+    // ── IBOV + Ações + FIIs do letreiro via brapi ───────────────
+    // BVSP incluído para garantir dado do Ibovespa (sem ^ que falha no demo)
     var ibovOk = false;
-    var brapiTickers = 'PETR4,VALE3,ITUB4,BBDC4,WEGE3,MGLU3,ABEV3,BBAS3,RENT3,SUZB3,HGLG11,KNRI11,MXRF11';
-    try {
-      // Tentar buscar ^BVSP pelo brapi (sem encode do ^)
-      var ri = await fetch('https://brapi.dev/api/quote/^BVSP?fundamental=false&token=demo',
-                           { signal: mkAbort(8000) });
-      if (ri.ok) {
-        var di = await ri.json();
-        var bvsp = (di.results || [])[0];
-        if (bvsp && bvsp.regularMarketPrice) {
-          _benchData.ibov = {
-            price: bvsp.regularMarketPrice,
-            chg:   bvsp.regularMarketChangePercent || 0,
-            chgR:  bvsp.regularMarketChange || 0
-          };
-          ibovOk = true;
-        }
-      }
-    } catch(_) {}
-
-    // ── Ações + FIIs do letreiro via brapi ───────────────────────
+    var brapiTickers = 'BVSP,PETR4,VALE3,ITUB4,BBDC4,WEGE3,MGLU3,ABEV3,BBAS3,RENT3,SUZB3,HGLG11,KNRI11,MXRF11';
     try {
       var rt = await fetch('https://brapi.dev/api/quote/' + brapiTickers +
                            '?fundamental=false&token=demo', { signal: mkAbort(12000) });
@@ -18951,6 +18952,15 @@ async function fetchBenchmarks() {
         (dt.results || []).forEach(function(q) {
           if (!q || q.regularMarketPrice == null) return;
           var sym = q.symbol.toUpperCase();
+          // Capturar BVSP para o card de benchmark
+          if ((sym === 'BVSP' || sym === '^BVSP') && !ibovOk) {
+            _benchData.ibov = {
+              price: q.regularMarketPrice,
+              chg:   q.regularMarketChangePercent || 0,
+              chgR:  q.regularMarketChange || 0
+            };
+            ibovOk = true;
+          }
           // Atualizar mercadoLiveData
           if (typeof mercadoLiveData !== 'undefined') {
             mercadoLiveData[sym] = {
@@ -18962,6 +18972,8 @@ async function fetchBenchmarks() {
               name:  q.longName || q.shortName || sym,
               prev:  q.regularMarketPreviousClose
             };
+            // Espelhar BVSP → IBOV para compatibilidade
+            if (sym === 'BVSP') mercadoLiveData['IBOV'] = mercadoLiveData['BVSP'];
           }
           // Atualizar letreiro
           var item = (typeof TICKER_LIVE !== 'undefined') &&
@@ -18970,6 +18982,44 @@ async function fetchBenchmarks() {
         });
       }
     } catch(_) {}
+
+    // Fallback IBOV: usar mercadoLiveData se brapi não retornou BVSP
+    if (!ibovOk && typeof mercadoLiveData !== 'undefined') {
+      var mbvsp = mercadoLiveData['BVSP'] || mercadoLiveData['IBOV'];
+      if (mbvsp && mbvsp.price) {
+        _benchData.ibov = { price: mbvsp.price, chg: mbvsp.chg || 0, chgR: mbvsp.chgR || 0 };
+        ibovOk = true;
+      }
+    }
+
+    // Fallback IBOV via Yahoo Finance
+    if (!ibovOk) {
+      try {
+        var ry = await fetch(
+          'https://query1.finance.yahoo.com/v8/finance/chart/%5EBVSP?interval=1d&range=1d',
+          { signal: mkAbort(6000) }
+        );
+        if (ry.ok) {
+          var dy = await ry.json();
+          var meta = dy?.chart?.result?.[0]?.meta;
+          if (meta && meta.regularMarketPrice) {
+            var prevClose = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice;
+            var chgR = meta.regularMarketPrice - prevClose;
+            _benchData.ibov = {
+              price: meta.regularMarketPrice,
+              chg:   prevClose ? (chgR / prevClose * 100) : 0,
+              chgR:  chgR
+            };
+            ibovOk = true;
+            if (typeof mercadoLiveData !== 'undefined') {
+              mercadoLiveData['BVSP'] = mercadoLiveData['IBOV'] = {
+                price: _benchData.ibov.price, chg: _benchData.ibov.chg, chgR: _benchData.ibov.chgR
+              };
+            }
+          }
+        }
+      } catch(_) {}
+    }
 
     // ── Moedas extras do letreiro via AwesomeAPI ─────────────────
     try {
@@ -19051,61 +19101,6 @@ async function fetchBenchmarks() {
     console.warn('fetchBenchmarks:', err);
     renderBenchmarkCards(true);
   }
-}
-
-function renderBenchmarkCards(error) {
-  if (error === undefined) error = false;
-
-  // IBOV
-  var ibov    = _benchData.ibov;
-  var ibovEl  = document.getElementById('ibovVal');
-  var ibovSub = document.getElementById('ibovSub');
-  var ibovDot = document.getElementById('ibovDot');
-  if (ibovEl && ibov) {
-    ibovEl.textContent = (ibov.chg >= 0 ? '+' : '') + fmt(ibov.chg, 2) + '%';
-    ibovEl.style.color = ibov.chg >= 0 ? '#10b981' : '#ef4444';
-    if (ibovSub) ibovSub.textContent =
-      ibov.price.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' pts  ·  ' +
-      (ibov.chgR >= 0 ? '+' : '') + ibov.chgR.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' pts hoje';
-    if (ibovDot) ibovDot.className = 'bench-live-dot';
-  } else {
-    if (ibovEl)  { ibovEl.textContent = error ? '—' : '…'; ibovEl.style.color = ''; }
-    if (ibovSub) ibovSub.textContent  = error ? 'sem conexão' : 'carregando…';
-    if (ibovDot) ibovDot.className    = 'bench-live-dot ' + (error ? 'off' : 'stale');
-  }
-
-  // Dólar
-  var dolar    = _benchData.dolar;
-  var dolarEl  = document.getElementById('dolarVal');
-  var dolarSub = document.getElementById('dolarSub');
-  var dolarDot = document.getElementById('dolarDot');
-  if (dolarEl && dolar) {
-    dolarEl.textContent = 'R$ ' + fmt(dolar.price, 2);
-    dolarEl.style.color = dolar.chg <= 0 ? '#10b981' : '#ef4444';
-    if (dolarSub) dolarSub.textContent =
-      (dolar.chg >= 0 ? '+' : '') + fmt(dolar.chg, 2) + '% hoje' +
-      '  ·  abertura R$ ' + fmt((dolar.price - (dolar.chgR || 0)), 2);
-    if (dolarDot) dolarDot.className = 'bench-live-dot';
-  } else {
-    if (dolarEl)  { dolarEl.textContent = error ? '—' : '…'; dolarEl.style.color = ''; }
-    if (dolarSub) dolarSub.textContent  = error ? 'sem conexão' : 'carregando…';
-    if (dolarDot) dolarDot.className    = 'bench-live-dot ' + (error ? 'off' : 'stale');
-  }
-
-  // CDI / SELIC  — fallback = 14.75% a.a. (SELIC Mar/2026)
-  var cdi      = _benchData.cdi;
-  var cdiEl    = document.getElementById('cdiVal');
-  var cdiSub   = document.getElementById('cdiSub');
-  var cdiDot   = document.getElementById('cdiDot');
-  var CDI_AA   = cdi ? cdi.aa : 14.75;
-  var CDI_AM   = (Math.pow(1 + CDI_AA / 100, 1/12) - 1) * 100;
-  var CDI_FONTE= cdi ? (cdi.fonte || 'SELIC') : 'SELIC (estimado)';
-  if (cdiEl) {
-    cdiEl.textContent = '+' + fmt(CDI_AM, 4) + '% a.m.';
-    cdiEl.style.color = '#10b981';
-  }
-  if (cdiSub) cdiSub.textContent = fmt(CDI_AA, 2) + '% a.a.  ·  ' + CDI_FONTE;
-  if (cdiDot) cdiDot.className   = 'bench-live-dot ' + (cdi ? '' : 'stale');
 }
 
 function benchStartAutoRefresh() {
@@ -19596,53 +19591,65 @@ function mkAbort(ms) {
 
 function renderBenchmarkCards(error = false) {
   // ── IBOV ──────────────────────────────────────────────────────
-  const ibov = _benchData.ibov;
+  const ibov    = _benchData.ibov;
   const ibovEl  = document.getElementById('ibovVal');
+  const ibovPts = document.getElementById('ibovPts');
   const ibovSub = document.getElementById('ibovSub');
   const ibovDot = document.getElementById('ibovDot');
   if (ibovEl && ibov) {
     const chg = ibov.chg;
     ibovEl.textContent = (chg >= 0 ? '+' : '') + fmt(chg, 2) + '%';
     ibovEl.style.color = chg >= 0 ? '#10b981' : '#ef4444';
-    if (ibovSub) ibovSub.textContent =
-      fmt(ibov.price, 0) + ' pts · ' + (ibov.chgR >= 0 ? '+' : '') + fmt(ibov.chgR, 0);
+    if (ibovPts) {
+      ibovPts.textContent = ibov.price.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' pts';
+      ibovPts.style.color = 'var(--text-primary)';
+    }
+    if (ibovSub) {
+      ibovSub.textContent = (ibov.chgR >= 0 ? '+' : '') +
+        ibov.chgR.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' pts hoje';
+    }
     if (ibovDot) ibovDot.className = 'bench-live-dot';
-  } else if (ibovDot) {
-    ibovDot.className = 'bench-live-dot ' + (error ? 'off' : 'stale');
+  } else {
+    if (ibovEl)  { ibovEl.textContent = error ? '—' : '…'; ibovEl.style.color = ''; }
+    if (ibovPts) { ibovPts.textContent = error ? '— pts' : '…'; }
+    if (ibovSub) ibovSub.textContent = error ? 'sem conexão' : 'carregando…';
+    if (ibovDot) ibovDot.className = 'bench-live-dot ' + (error ? 'off' : 'stale');
   }
 
   // ── DÓLAR ─────────────────────────────────────────────────────
-  const dolar = _benchData.dolar;
+  const dolar    = _benchData.dolar;
   const dolarEl  = document.getElementById('dolarVal');
   const dolarSub = document.getElementById('dolarSub');
   const dolarDot = document.getElementById('dolarDot');
   if (dolarEl && dolar) {
     dolarEl.textContent = 'R$ ' + fmt(dolar.price, 2);
-    dolarEl.style.color = dolar.chg >= 0 ? '#ef4444' : '#10b981'; // dólar sobe = ruim
+    dolarEl.style.color = dolar.chg >= 0 ? '#ef4444' : '#10b981';
     if (dolarSub) dolarSub.textContent =
-      (dolar.chg >= 0 ? '+' : '') + fmt(dolar.chg, 2) + '% hoje';
+      (dolar.chg >= 0 ? '+' : '') + fmt(dolar.chg, 2) + '% hoje  ·  abertura R$ ' + fmt(dolar.price - (dolar.chgR||0), 2);
     if (dolarDot) dolarDot.className = 'bench-live-dot';
-  } else if (dolarDot) {
-    dolarDot.className = 'bench-live-dot ' + (error ? 'off' : 'stale');
+  } else {
+    if (dolarEl)  { dolarEl.textContent = error ? '—' : '…'; dolarEl.style.color = ''; }
+    if (dolarSub) dolarSub.textContent = error ? 'sem conexão' : 'carregando…';
+    if (dolarDot) dolarDot.className = 'bench-live-dot ' + (error ? 'off' : 'stale');
   }
 
-  // ── CDI ───────────────────────────────────────────────────────
-  const cdi = _benchData.cdi;
-  const cdiEl  = document.getElementById('cdiVal');
-  const cdiSub = document.getElementById('cdiSub');
-  const cdiDot = document.getElementById('cdiDot');
-  if (cdiEl && cdi) {
-    cdiEl.textContent = '+' + fmt(cdi.am, 4) + '% a.m.';
+  // ── CDI / SELIC ───────────────────────────────────────────────
+  const cdi       = _benchData.cdi;
+  const cdiEl     = document.getElementById('cdiVal');
+  const cdiSub    = document.getElementById('cdiSub');
+  const cdiDot    = document.getElementById('cdiDot');
+  const cdiPeriod = document.getElementById('cdiPeriod');
+  const cdiAA = cdi ? cdi.aa : CDI_ANUAL;
+  const cdiAM = (Math.pow(1 + cdiAA/100, 1/12) - 1) * 100;
+  const cdiDiario = cdiAA / 252;
+  const cdiSource = cdi ? (cdi.fonte || 'BrasilAPI') : (_taxasAtualizadas ? 'BrasilAPI' : 'estimado');
+  if (cdiEl) {
+    cdiEl.textContent = '+' + fmt(cdiAM, 4) + '% a.m.';
     cdiEl.style.color = '#10b981';
-    if (cdiSub) cdiSub.textContent = fmt(cdi.aa, 2) + '% a.a. · ' + cdi.fonte;
-    if (cdiDot) cdiDot.className = 'bench-live-dot stale'; // CDI muda pouco
-  } else if (cdiDot) {
-    // fallback: usa CDI_ANUAL global (padrão ou já atualizado via API)
-    const CDI_AM = (Math.pow(1 + CDI_ANUAL/100, 1/12) - 1) * 100;
-    if (cdiEl) { cdiEl.textContent = '+' + fmt(CDI_AM, 4) + '% a.m.'; cdiEl.style.color = '#10b981'; }
-    if (cdiSub) cdiSub.textContent = fmt(CDI_ANUAL, 2) + '% a.a. · ' + (_taxasAtualizadas ? 'BrasilAPI' : 'estimado');
-    if (cdiDot) cdiDot.className = 'bench-live-dot ' + (_taxasAtualizadas ? 'stale' : 'off');
   }
+  if (cdiSub) cdiSub.textContent = fmt(cdiAA, 2) + '% a.a.  ·  ' + fmt(cdiDiario, 4) + '% a.d.';
+  if (cdiPeriod) cdiPeriod.textContent = 'Fonte: ' + cdiSource;
+  if (cdiDot) cdiDot.className = 'bench-live-dot ' + (cdi || _taxasAtualizadas ? 'stale' : 'off');
 }
 
 
@@ -22884,6 +22891,310 @@ function extratoImportar() {
   showToast('✅ '+importados+' lançamentos importados!');
   setTimeout(function(){ closeModal('modalExtratoImport'); }, 2000);
 }
+
+// ══════════════════════════════════════════════════════════════
+// IMPORTADOR CSV DO PORTAL B3
+// ══════════════════════════════════════════════════════════════
+
+var _b3Parsed = []; // ativos processados prontos para importar
+
+function openB3Import() {
+  _b3Parsed = [];
+  b3GoStep1();
+  var err = document.getElementById('b3ParseError');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  var fi = document.getElementById('b3FileInput');
+  if (fi) fi.value = '';
+  document.getElementById('modalB3Import').classList.add('open');
+}
+
+function b3GoStep1() {
+  document.getElementById('b3Step1').style.display = '';
+  document.getElementById('b3Step2').style.display = 'none';
+  document.getElementById('b3BtnVoltar').style.display = 'none';
+  document.getElementById('b3BtnConfirm').style.display = 'none';
+}
+
+function b3HandleDrop(ev) {
+  var file = ev.dataTransfer.files[0];
+  if (file) b3ReadFile(file);
+}
+
+function b3HandleFile(input) {
+  if (input.files[0]) b3ReadFile(input.files[0]);
+}
+
+function b3ReadFile(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) { b3ProcessText(e.target.result); };
+  // B3 exports are often UTF-8; Windows-1252 as fallback handled by replacement char check
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Splits a CSV line respecting quoted fields
+function _b3SplitLine(line, sep) {
+  var result = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === sep && !inQ) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result.map(function(s){ return s.trim().replace(/^"|"$/g,''); });
+}
+
+// Find column index by searching for any of the candidate names
+function _b3Col(headers, candidates) {
+  for (var ci = 0; ci < candidates.length; ci++) {
+    var target = candidates[ci].toLowerCase();
+    for (var hi = 0; hi < headers.length; hi++) {
+      if (headers[hi].toLowerCase().replace(/\s+/g,' ').trim() === target) return hi;
+    }
+    // partial match
+    for (var hi2 = 0; hi2 < headers.length; hi2++) {
+      if (headers[hi2].toLowerCase().includes(target)) return hi2;
+    }
+  }
+  return -1;
+}
+
+function _b3ParseNum(s) {
+  if (!s) return null;
+  // Remove thousand separator (.) then replace decimal comma
+  var clean = s.replace(/\./g,'').replace(',','.');
+  var n = parseFloat(clean);
+  return isNaN(n) ? null : n;
+}
+
+function _b3TipoFromProduto(produto, ticker) {
+  var p = (produto || '').toLowerCase();
+  var t = (ticker  || '').toUpperCase();
+  if (p.includes('imobiliário') || p.includes('imobiliario') || p.includes('fii')) return 'FII';
+  if (p.includes('etf') || p.includes('fundo de índice') || p.includes('fundo de indice')) return 'ETF';
+  if (p.includes('bdr')) return 'BDR';
+  if (p.includes('ação') || p.includes('ações') || p.includes('acao') || p.includes('acoes')) return 'Ação';
+  // Heuristic from ticker
+  if (t.endsWith('34') || t.endsWith('35')) return 'BDR';
+  if (t.endsWith('11')) return 'FII';
+  return 'Ação';
+}
+
+function _b3CorretoraNome(s) {
+  if (!s) return '';
+  // Shorten common names
+  return s.replace(/CORRETORA DE VALORES.*/i,'').replace(/INVESTIMENTOS.*/i,'Investimentos').replace(/S\.?A\.?/i,'').replace(/CCTVM.*/i,'').trim();
+}
+
+function b3ProcessText(text) {
+  var errEl = document.getElementById('b3ParseError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  // Detect separator
+  var firstLines = text.split(/\r?\n/).slice(0,5).join('\n');
+  var sep = firstLines.indexOf(';') >= 0 ? ';' : ',';
+
+  var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+
+  // Find header row: contains "código" or "ticker" or "negociação"
+  var headerIdx = -1;
+  for (var i = 0; i < Math.min(lines.length, 15); i++) {
+    var ln = lines[i].toLowerCase();
+    if (ln.includes('código') || ln.includes('codigo') || ln.includes('ticker') || ln.includes('negociação') || ln.includes('negociacao')) {
+      headerIdx = i; break;
+    }
+  }
+
+  if (headerIdx < 0) {
+    if (errEl) { errEl.textContent = '❌ Formato não reconhecido. Certifique-se de exportar o CSV de Posição ou Movimentação do Portal B3 (investidor.b3.com.br).'; errEl.style.display = ''; }
+    return;
+  }
+
+  var rawHeaders = _b3SplitLine(lines[headerIdx], sep);
+  var headers    = rawHeaders.map(function(h){ return h.toLowerCase().replace(/\s+/g,' ').trim(); });
+
+  // Detect format: transaction has "movimentação" or "movimentacao" column
+  var isTx = headers.some(function(h){ return h.includes('movimenta'); });
+
+  // Map columns
+  var cTicker  = _b3Col(headers, ['código de negociação','codigo de negociacao','código','codigo','ticker','ativo']);
+  var cQtd     = _b3Col(headers, ['quantidade disponível','quantidade disponivel','quantidade']);
+  var cPreco   = _b3Col(headers, ['preço unitário','preco unitario','preço (r$)','preco (r$)','preço médio','preco medio','preço','preco','valor unitário','valor unitario']);
+  var cProduto = _b3Col(headers, ['produto']);
+  var cTipoMov = _b3Col(headers, ['tipo de movimentação','tipo de movimentacao','movimentação','movimentacao','tipo movimentação','tipo movimentacao']);
+  var cInstit  = _b3Col(headers, ['instituição','instituicao','corretora','banco','instituição financeira']);
+
+  if (cTicker < 0) {
+    if (errEl) { errEl.textContent = '❌ Coluna de ticker não encontrada. Verifique se o arquivo é do Portal B3.'; errEl.style.display = ''; }
+    return;
+  }
+
+  // Parse data rows
+  var rawRows = [];
+  for (var ri = headerIdx + 1; ri < lines.length; ri++) {
+    var line = lines[ri].trim();
+    if (!line) continue;
+    var cols = _b3SplitLine(line, sep);
+
+    var ticker = cTicker >= 0 ? (cols[cTicker] || '').trim().toUpperCase() : '';
+    // Validate ticker: 4-8 alpha-numeric chars
+    if (!ticker || !/^[A-Z]{3,6}[0-9F]{1,3}$/.test(ticker)) continue;
+
+    var qtd = cQtd >= 0 ? _b3ParseNum(cols[cQtd]) : null;
+    if (!qtd || qtd <= 0) continue;
+
+    var preco   = cPreco   >= 0 ? _b3ParseNum(cols[cPreco])   : null;
+    var produto = cProduto >= 0 ? (cols[cProduto] || '').trim() : '';
+    var tipoMov = cTipoMov >= 0 ? (cols[cTipoMov] || '').trim() : '';
+    var instit  = cInstit  >= 0 ? (cols[cInstit]  || '').trim() : '';
+
+    // For transaction format, skip non-buy movements
+    if (isTx) {
+      var tl = tipoMov.toLowerCase();
+      if (!tl.includes('compra') && !tl.includes('crédito em ativos') && !tl.includes('credito em ativos') && !tl.includes('transferência de entrada') && !tl.includes('transferencia de entrada')) continue;
+    }
+
+    rawRows.push({ ticker: ticker, qtd: qtd, preco: preco, produto: produto, instit: instit });
+  }
+
+  if (rawRows.length === 0) {
+    if (errEl) { errEl.textContent = '❌ Nenhum ativo encontrado no arquivo. Verifique se exportou o arquivo correto.'; errEl.style.display = ''; }
+    return;
+  }
+
+  // Aggregate by ticker (for transaction format: weighted average)
+  var aggMap = {};
+  for (var j = 0; j < rawRows.length; j++) {
+    var r = rawRows[j];
+    if (!aggMap[r.ticker]) {
+      aggMap[r.ticker] = { ticker: r.ticker, qtd: 0, custoTotal: 0, produto: r.produto, instit: r.instit, hasPrices: false };
+    }
+    aggMap[r.ticker].qtd += r.qtd;
+    if (r.preco && r.preco > 0) {
+      aggMap[r.ticker].custoTotal += r.qtd * r.preco;
+      aggMap[r.ticker].hasPrices = true;
+    }
+  }
+
+  _b3Parsed = Object.values(aggMap).map(function(a) {
+    var pm = (a.hasPrices && a.qtd > 0) ? a.custoTotal / a.qtd : null;
+    return {
+      ticker:     a.ticker,
+      tipo:       _b3TipoFromProduto(a.produto, a.ticker),
+      qtd:        a.qtd,
+      precoMedio: pm,
+      banco:      _b3CorretoraNome(a.instit) || 'B3',
+      produto:    a.produto
+    };
+  });
+
+  b3RenderStep2(isTx ? 'transacao' : 'posicao');
+}
+
+function b3RenderStep2(format) {
+  var hasPrices = _b3Parsed.some(function(a){ return a.precoMedio && a.precoMedio > 0; });
+
+  // Format badge
+  document.getElementById('b3FormatIcon').textContent = format === 'transacao' ? '📈' : '📋';
+  document.getElementById('b3FormatLabel').textContent = format === 'transacao'
+    ? 'Movimentação — preço médio calculado automaticamente'
+    : 'Posição — snapshot da carteira B3';
+  document.getElementById('b3FormatSub').textContent = format === 'transacao'
+    ? 'Compras agrupadas por ticker com média ponderada'
+    : 'Preços médios não incluídos neste tipo de export';
+  document.getElementById('b3CountBadge').textContent = _b3Parsed.length + ' ativos';
+
+  // Sem preço warning
+  document.getElementById('b3SemPrecoWarn').style.display = (!hasPrices) ? '' : 'none';
+
+  // Build preview table
+  var body = document.getElementById('b3PreviewBody');
+  body.innerHTML = '';
+  var existingTickers = (state.ativos || []).filter(function(a){ return a.categoria === 'rv'; }).map(function(a){ return a.ticker; });
+
+  _b3Parsed.forEach(function(a, idx) {
+    var jaExiste = existingTickers.includes(a.ticker);
+    var statusHtml = jaExiste
+      ? '<span style="background:rgba(245,158,11,.15);color:#f59e0b;border-radius:20px;padding:1px 7px;font-size:10px">Existente</span>'
+      : '<span style="background:rgba(16,185,129,.15);color:#10b981;border-radius:20px;padding:1px 7px;font-size:10px">Novo</span>';
+    var precoCell = a.precoMedio
+      ? 'R$ ' + a.precoMedio.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      : '<span style="color:var(--text-muted)">—</span>';
+
+    body.insertAdjacentHTML('beforeend',
+      '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:6px 10px;text-align:center"><input type="checkbox" class="b3RowChk" data-idx="'+idx+'" checked style="cursor:pointer"></td>' +
+        '<td style="padding:6px 10px;font-weight:700;font-family:var(--mono);color:var(--text-primary)">' + a.ticker + '</td>' +
+        '<td style="padding:6px 10px;color:var(--text-secondary)">' + a.tipo + '</td>' +
+        '<td style="padding:6px 10px;font-size:11px;color:var(--text-muted)">' + (a.banco || '—') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right;font-family:var(--mono)">' + a.qtd.toLocaleString('pt-BR') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right;font-family:var(--mono)">' + precoCell + '</td>' +
+        '<td style="padding:6px 10px;text-align:center">' + statusHtml + '</td>' +
+      '</tr>'
+    );
+  });
+
+  // Show step 2
+  document.getElementById('b3Step1').style.display = 'none';
+  document.getElementById('b3Step2').style.display = '';
+  document.getElementById('b3BtnVoltar').style.display = '';
+  document.getElementById('b3BtnConfirm').style.display = '';
+}
+
+function b3ToggleAll(cb) {
+  document.querySelectorAll('.b3RowChk').forEach(function(c){ c.checked = cb.checked; });
+}
+
+function b3DoImport() {
+  var mode = document.querySelector('input[name="b3MergeMode"]:checked')?.value || 'merge';
+  var checked = Array.from(document.querySelectorAll('.b3RowChk')).filter(function(c){ return c.checked; }).map(function(c){ return parseInt(c.dataset.idx); });
+  var toImport = checked.map(function(i){ return _b3Parsed[i]; });
+
+  if (toImport.length === 0) { showToast('⚠️ Selecione ao menos um ativo'); return; }
+
+  // Remove existing RV if replace mode
+  if (mode === 'replace_rv') {
+    if (!confirm('Isso removerá TODOS os seus ' + (state.ativos||[]).filter(function(a){ return a.categoria==='rv'; }).length + ' ativos de renda variável antes de importar. Confirma?')) return;
+    state.ativos = (state.ativos||[]).filter(function(a){ return a.categoria !== 'rv'; });
+  }
+
+  var adicionados = 0, atualizados = 0;
+
+  toImport.forEach(function(b3a) {
+    var existIdx = (state.ativos||[]).findIndex(function(a){ return a.categoria === 'rv' && a.ticker === b3a.ticker; });
+
+    if (existIdx >= 0) {
+      if (mode === 'new_only') return; // skip
+      // merge: update
+      state.ativos[existIdx].qtd = b3a.qtd;
+      if (b3a.precoMedio && b3a.precoMedio > 0) state.ativos[existIdx].precoMedio = b3a.precoMedio;
+      atualizados++;
+    } else {
+      // add new
+      state.ativos.push({
+        id:         Date.now() + Math.random(),
+        categoria:  'rv',
+        ticker:     b3a.ticker,
+        tipo:       b3a.tipo,
+        qtd:        b3a.qtd,
+        precoMedio: b3a.precoMedio || 0,
+        cotacao:    b3a.precoMedio || 0,
+        setor:      '',
+        banco:      b3a.banco || 'B3',
+        proventos:  0
+      });
+      adicionados++;
+    }
+  });
+
+  autoSave();
+  updateDashboard();
+  initCharts();
+  setTimeout(function(){ ativosRefreshCotacoes(false); }, 300);
+
+  closeModal('modalB3Import');
+  showToast('✅ B3: ' + adicionados + ' adicionados · ' + atualizados + ' atualizados');
+}
 </script>
         <button class="modal-close" onclick="closeModal('modalGenerico')">✕</button>
       </div>
@@ -22992,6 +23303,120 @@ function extratoImportar() {
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeModal('modalExtratoImport')">Cancelar</button>
           <button class="btn btn-primary" id="extratoImportBtn" onclick="extratoImportar()" style="opacity:.5">📥 Importar <span id="extratoImportCount"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MODAL: IMPORTAR CARTEIRA B3 ══════════════════════════ -->
+    <div class="modal-overlay" id="modalB3Import">
+      <div class="modal" style="max-width:700px;max-height:92vh;display:flex;flex-direction:column">
+        <div class="modal-header">
+          <div class="modal-title">🇧🇷 Importar Carteira do Portal B3</div>
+          <button class="modal-close" onclick="closeModal('modalB3Import')">✕</button>
+        </div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;display:grid;gap:14px">
+
+          <!-- STEP 1: UPLOAD -->
+          <div id="b3Step1">
+            <!-- instrução -->
+            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+              <div style="font-weight:700;color:#10b981;margin-bottom:6px">📋 Como exportar do Portal B3</div>
+              <ol style="margin:0;padding-left:18px;line-height:1.9">
+                <li>Acesse <strong>investidor.b3.com.br</strong> → faça login com CPF</li>
+                <li>Vá em <strong>Extratos e Informativos → Posição</strong> (para carteira atual)<br>
+                    <em style="color:var(--text-muted)">ou Movimentação (para calcular preço médio automaticamente)</em></li>
+                <li>Clique em <strong>Exportar</strong> e salve o arquivo <code>.csv</code></li>
+                <li>Carregue o arquivo abaixo</li>
+              </ol>
+            </div>
+
+            <!-- drop zone -->
+            <div id="b3DropZone"
+              style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:2px dashed var(--border);border-radius:var(--radius);padding:32px 24px;cursor:pointer;text-align:center;transition:border-color .2s"
+              onclick="document.getElementById('b3FileInput').click()"
+              ondragover="event.preventDefault();this.style.borderColor='#10b981'"
+              ondragleave="this.style.borderColor=''"
+              ondrop="event.preventDefault();this.style.borderColor='';b3HandleDrop(event)">
+              <span style="font-size:40px">📂</span>
+              <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Arraste o CSV do Portal B3 aqui</div>
+              <div style="font-size:12px;color:var(--text-muted)">ou clique para selecionar o arquivo</div>
+              <div style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:4px 10px;border-radius:20px">Aceita: Posição e Movimentação · .csv · .txt</div>
+            </div>
+            <input type="file" id="b3FileInput" accept=".csv,.txt" style="display:none" onchange="b3HandleFile(this)">
+
+            <div id="b3ParseError" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:#ef4444;margin-top:10px"></div>
+          </div>
+
+          <!-- STEP 2: PREVIEW -->
+          <div id="b3Step2" style="display:none">
+            <!-- badge formato -->
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg-input);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px">
+              <span id="b3FormatIcon" style="font-size:22px">📊</span>
+              <div>
+                <div id="b3FormatLabel" style="font-size:13px;font-weight:700"></div>
+                <div id="b3FormatSub" style="font-size:11px;color:var(--text-muted)"></div>
+              </div>
+              <div style="margin-left:auto">
+                <span id="b3CountBadge" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700"></span>
+              </div>
+            </div>
+
+            <!-- aviso sem preço -->
+            <div id="b3SemPrecoWarn" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;color:#f59e0b;margin-bottom:10px">
+              ⚠️ <strong>Preço médio não disponível</strong> no CSV de Posição — o campo será preenchido com 0. Use o CSV de <strong>Movimentação</strong> para cálculo automático, ou edite cada ativo após a importação.
+            </div>
+
+            <!-- tabela preview -->
+            <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:12px">
+              <div style="max-height:260px;overflow-y:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead>
+                    <tr style="background:var(--bg-input);position:sticky;top:0">
+                      <th style="padding:7px 10px;width:32px;text-align:center">
+                        <input type="checkbox" id="b3SelectAll" checked onchange="b3ToggleAll(this)" style="cursor:pointer">
+                      </th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Ticker</th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Tipo</th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Corretora</th>
+                      <th style="padding:7px 10px;text-align:right;color:var(--text-muted)">Qtd</th>
+                      <th style="padding:7px 10px;text-align:right;color:var(--text-muted)">Preço Médio</th>
+                      <th style="padding:7px 10px;text-align:center;color:var(--text-muted)">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="b3PreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- opções de merge -->
+            <div style="background:var(--bg-input);border-radius:var(--radius-sm);padding:12px 14px">
+              <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Como importar</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="radio" name="b3MergeMode" value="merge" checked style="margin-top:2px">
+                  <div><strong>Mesclar</strong> — Atualiza quantidade e preço dos ativos existentes; adiciona os novos</div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="radio" name="b3MergeMode" value="new_only" style="margin-top:2px">
+                  <div><strong>Apenas novos</strong> — Ignora tickers que já existem na carteira</div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="radio" name="b3MergeMode" value="replace_rv" style="margin-top:2px">
+                  <div><strong style="color:#ef4444">Substituir RV</strong> — Remove todos os ativos de renda variável e importa somente os do B3</div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="display:flex;gap:8px;justify-content:space-between">
+          <div>
+            <button class="btn btn-secondary" id="b3BtnVoltar" style="display:none" onclick="b3GoStep1()">← Voltar</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="closeModal('modalB3Import')">Cancelar</button>
+            <button class="btn btn-primary" id="b3BtnConfirm" style="display:none" onclick="b3DoImport()">✅ Confirmar Importação</button>
+          </div>
         </div>
       </div>
     </div>
