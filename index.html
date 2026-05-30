@@ -14727,14 +14727,20 @@ function _renderFundPanel(panel, ticker, q) {
   const price  = q.regularMarketPrice || 0;
   const pl     = q.priceEarnings     ?? null;
   const pvp    = q.priceToBook       ?? null;
-  const dy     = q.dividendYield     ?? null;   // decimal: 0.085 = 8.5%
-  const roe    = q.returnOnEquity    ?? null;   // decimal
-  const mg     = q.netMargin         ?? null;   // decimal
-  const lpa    = q.earningsPerShare  ?? null;
-  const vpa    = q.bookValuePerShare ?? null;
+  const dy     = q.dividendYield     ?? null;
+  const roe    = q.returnOnEquity    ?? null;
+  const mg     = q.netMargin         ?? null;
   const mktcap = q.marketCap         ?? null;
 
-  // Preço Graham: √(22.5 × LPA × VPA)  — só válido se LPA > 0 e VPA > 0
+  // Derivar LPA e VPA de P/L e P/VP quando campos diretos não vêm da API
+  const lpa = (q.earningsPerShare  != null) ? q.earningsPerShare
+            : (price > 0 && pl  > 0)        ? price / pl
+            : null;
+  const vpa = (q.bookValuePerShare != null) ? q.bookValuePerShare
+            : (price > 0 && pvp > 0)        ? price / pvp
+            : null;
+
+  // Preço Graham: √(22.5 × LPA × VPA)
   const graham = (lpa > 0 && vpa > 0) ? Math.sqrt(22.5 * lpa * vpa) : null;
 
   // Preço Bazin: DPA anual / 0.06   onde DPA = preço × DY
@@ -14958,15 +14964,23 @@ async function _grahamFetchAll(tickers) {
 }
 
 function _grahamExtract(q) {
-  const lpa  = q.earningsPerShare  ?? null;
-  const vpa  = q.bookValuePerShare ?? null;
   const price = q.regularMarketPrice ?? null;
+  const pl    = q.priceEarnings      ?? null;
+  const pvp   = q.priceToBook        ?? null;
+
+  // Brapi raramente devolve earningsPerShare/bookValuePerShare diretamente;
+  // derivamos de P/L e P/VP quando disponíveis e price > 0
+  const lpa = (q.earningsPerShare  != null) ? q.earningsPerShare
+            : (price > 0 && pl  > 0)        ? price / pl
+            : null;
+  const vpa = (q.bookValuePerShare != null) ? q.bookValuePerShare
+            : (price > 0 && pvp > 0)        ? price / pvp
+            : null;
+
   return {
-    lpa, vpa, price,
+    lpa, vpa, price, pl, pvp,
     graham: (lpa > 0 && vpa > 0) ? Math.sqrt(22.5 * lpa * vpa) : null,
-    pl:  q.priceEarnings ?? null,
-    pvp: q.priceToBook   ?? null,
-    dy:  q.dividendYield ?? null,
+    dy: q.dividendYield ?? null,
   };
 }
 
@@ -15134,7 +15148,7 @@ async function forecastPergunta() {
   for (const model of models) {
     const result = await new Promise(resolve => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, true);
+      xhr.open('POST', `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, true);
       xhr.setRequestHeader('Content-Type','application/json');
       xhr.timeout = 20000;
       xhr.onload = () => {
@@ -18746,7 +18760,7 @@ async function forecastSearch() {
 
   // Tentar Gemini se tiver API key
   if (apiKey) {
-    var models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro'];
+    var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
     var geminiResult = null;
     var lastError    = '';
 
@@ -18770,7 +18784,7 @@ async function forecastSearch() {
         }, 15000);
 
         var xhr = new XMLHttpRequest();
-        var url = 'https://generativelanguage.googleapis.com/v1/models/' + model + ':generateContent?key=' + apiKey;
+        var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type','application/json');
         xhr.onload = function() {
