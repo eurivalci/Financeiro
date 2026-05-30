@@ -22905,6 +22905,8 @@ function openB3Import() {
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   var fi = document.getElementById('b3FileInput');
   if (fi) fi.value = '';
+  var pa = document.getElementById('b3PasteArea');
+  if (pa) pa.value = '';
   document.getElementById('modalB3Import').classList.add('open');
 }
 
@@ -22925,10 +22927,52 @@ function b3HandleFile(input) {
 }
 
 function b3ReadFile(file) {
-  var reader = new FileReader();
-  reader.onload = function(e) { b3ProcessText(e.target.result); };
-  // B3 exports are often UTF-8; Windows-1252 as fallback handled by replacement char check
-  reader.readAsText(file, 'UTF-8');
+  var name = (file.name || '').toLowerCase();
+  var isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
+  if (isExcel) {
+    b3ReadExcel(file);
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) { b3ProcessText(e.target.result); };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function b3ReadExcel(file) {
+  // Load SheetJS on demand
+  function doRead() {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb   = XLSX.read(data, { type: 'array' });
+        // Try all sheets and pick the one with most rows
+        var best = '';
+        wb.SheetNames.forEach(function(sn) {
+          var csv = XLSX.utils.sheet_to_csv(wb.Sheets[sn], { FS: ';', blankrows: false });
+          if (csv.length > best.length) best = csv;
+        });
+        b3ProcessText(best);
+      } catch(err) {
+        var errEl = document.getElementById('b3ParseError');
+        if (errEl) { errEl.textContent = '❌ Erro ao ler Excel: ' + err.message; errEl.style.display = ''; }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  if (window.XLSX) {
+    doRead();
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload  = doRead;
+    s.onerror = function() {
+      var errEl = document.getElementById('b3ParseError');
+      if (errEl) { errEl.textContent = '❌ Não foi possível carregar a biblioteca de leitura de Excel. Verifique sua conexão com a internet.'; errEl.style.display = ''; }
+    };
+    document.head.appendChild(s);
+  }
 }
 
 // Splits a CSV line respecting quoted fields
@@ -23325,24 +23369,32 @@ function b3DoImport() {
                 <li>Acesse <strong>investidor.b3.com.br</strong> → faça login com CPF</li>
                 <li>Vá em <strong>Extratos e Informativos → Posição</strong> (para carteira atual)<br>
                     <em style="color:var(--text-muted)">ou Movimentação (para calcular preço médio automaticamente)</em></li>
-                <li>Clique em <strong>Exportar</strong> e salve o arquivo <code>.csv</code></li>
-                <li>Carregue o arquivo abaixo</li>
+                <li>Clique em <strong>Exportar Excel</strong> e salve o arquivo <code>.xlsx</code></li>
+                <li>Carregue o arquivo abaixo — ou cole a tabela copiada do Excel</li>
               </ol>
             </div>
 
-            <!-- drop zone -->
-            <div id="b3DropZone"
-              style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:2px dashed var(--border);border-radius:var(--radius);padding:32px 24px;cursor:pointer;text-align:center;transition:border-color .2s"
-              onclick="document.getElementById('b3FileInput').click()"
-              ondragover="event.preventDefault();this.style.borderColor='#10b981'"
-              ondragleave="this.style.borderColor=''"
-              ondrop="event.preventDefault();this.style.borderColor='';b3HandleDrop(event)">
-              <span style="font-size:40px">📂</span>
-              <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Arraste o CSV do Portal B3 aqui</div>
-              <div style="font-size:12px;color:var(--text-muted)">ou clique para selecionar o arquivo</div>
-              <div style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:4px 10px;border-radius:20px">Aceita: Posição e Movimentação · .csv · .txt</div>
+            <!-- drop zone + paste -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+              <div id="b3DropZone"
+                style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--border);border-radius:var(--radius);padding:24px 16px;cursor:pointer;text-align:center;transition:border-color .2s"
+                onclick="document.getElementById('b3FileInput').click()"
+                ondragover="event.preventDefault();this.style.borderColor='#10b981'"
+                ondragleave="this.style.borderColor=''"
+                ondrop="event.preventDefault();this.style.borderColor='';b3HandleDrop(event)">
+                <span style="font-size:34px">📂</span>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Arraste ou clique</div>
+                <div style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:3px 8px;border-radius:20px">.xlsx · .xls · .csv · .txt</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="font-size:11px;color:var(--text-muted)">Ou cole a tabela copiada do Excel (Ctrl+A → Ctrl+C na planilha):</div>
+                <textarea id="b3PasteArea"
+                  placeholder="Cole aqui o conteúdo copiado do Excel..."
+                  style="flex:1;resize:none;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:11px;color:var(--text-primary);font-family:monospace;min-height:100px"
+                  oninput="if(this.value.trim()) b3ProcessText(this.value)"></textarea>
+              </div>
             </div>
-            <input type="file" id="b3FileInput" accept=".csv,.txt" style="display:none" onchange="b3HandleFile(this)">
+            <input type="file" id="b3FileInput" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="b3HandleFile(this)">
 
             <div id="b3ParseError" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:#ef4444;margin-top:10px"></div>
           </div>
