@@ -3573,24 +3573,6 @@ self.addEventListener('fetch', e => {
         </div>
       </div>
 
-      <!-- Drill-down overlay sheet (Distribuição) -->
-      <div class="dist-drill-overlay" id="distDrillOverlay" onclick="closeDistDrill(event)">
-        <div class="dist-drill-sheet" id="distDrillSheet">
-          <div class="dist-drill-handle"></div>
-          <div class="dist-drill-header">
-            <div class="dist-drill-title">
-              <div class="dist-drill-dot" id="distDrillDot"></div>
-              <div>
-                <div class="dist-drill-name" id="distDrillName">—</div>
-                <div class="dist-drill-meta" id="distDrillMeta"></div>
-              </div>
-            </div>
-            <button class="dist-drill-close" onclick="closeDistDrill()">✕</button>
-          </div>
-          <div class="dist-drill-body" id="distDrillBody"></div>
-        </div>
-      </div>
-
       <!-- Score de Diversificação -->
 
       <div class="card" style="margin-top:16px">
@@ -8320,7 +8302,7 @@ function _ativoNome(ticker) {
 }
 
 var _rvSortState   = { col: null, asc: true };
-var _fsMiniCharts  = { setor: null, banco: null };
+var _fsMiniCharts  = { tipo: null, banco: null };
 var _fsMiniRvAtivos = []; // cached for legend click drill-down
 
 function fsDrillFromLeg(el) {
@@ -8362,26 +8344,43 @@ function openFsDrill(dimension, label, color, allAtivos) {
   if (!body) return;
 
   body.innerHTML = withVal.map(function(a) {
-    var pctSeg = totalSeg  > 0 ? a._val / totalSeg  * 100 : 0;
-    var pctTot = patrimonio > 0 ? a._val / patrimonio * 100 : 0;
-    var cot    = getCotacao(a.ticker, a.precoMedio);
-    var vr     = cot - a.precoMedio;
-    var vrPct  = a.precoMedio > 0 ? vr / a.precoMedio * 100 : 0;
-    var vrColor = vr >= 0 ? '#10b981' : '#ef4444';
-    var nome    = _ativoNome(a.ticker) || a.ticker;
-    var tipoTag = a.tipo === 'FII' ? '🏢' : a.tipo === 'ETF' ? '📦' : a.tipo === 'BDR' ? '🌎' : '📈';
+    var pctSeg  = totalSeg  > 0 ? a._val / totalSeg  * 100 : 0;
+    var pctTot  = patrimonio > 0 ? a._val / patrimonio * 100 : 0;
+    var isRV    = a.categoria === 'rv';
+    var isCaixa = a.categoria === 'caixa';
+    // Identificador e nome
+    var id   = isRV ? (a.ticker || '') : (a.nome || a.banco || '');
+    var nome = isRV ? (_ativoNome(a.ticker) || a.ticker || '') : (a.nome || a.banco || '');
+    // Ícone por tipo
+    var tipoTag = a.tipo === 'FII' ? '🏢' : a.tipo === 'ETF' ? '📦' : a.tipo === 'BDR' ? '🌎'
+                : a.tipo === 'CDB' || a.tipo === 'LCI' || a.tipo === 'LCA' ? '🏦'
+                : a.tipo && a.tipo.startsWith('Tesouro') ? '🏛️'
+                : isCaixa ? '💵' : '📈';
+    // Linha de detalhe secundária
+    var detail = '';
+    if (isRV) {
+      var cot    = getCotacao(a.ticker, a.precoMedio);
+      var vr     = cot - (a.precoMedio || 0);
+      var vrPct  = a.precoMedio > 0 ? vr / a.precoMedio * 100 : 0;
+      var vrColor = vr >= 0 ? '#10b981' : '#ef4444';
+      detail = '<span style="font-size:10px;color:' + vrColor + ';font-family:var(--mono)">' + (vr >= 0 ? '+' : '') + fmt(vrPct, 2) + '%</span>'
+             + '<span style="font-size:10px;color:var(--text-muted)"> · ' + fmt(a.qtd, 0) + ' un. × R$ ' + fmt(cot) + '</span>';
+    } else if (!isCaixa) {
+      var banco = a.banco || '';
+      var venc  = a.dataVencimento ? a.dataVencimento.split('-').reverse().join('/') : '—';
+      detail = '<span style="font-size:10px;color:var(--text-muted)">' + banco + ' · Venc: ' + venc + '</span>';
+    } else {
+      detail = '<span style="font-size:10px;color:var(--text-muted)">' + (a.banco || '') + '</span>';
+    }
     return '<div class="dist-ativo-row">'
       + '<div style="font-size:18px;flex-shrink:0">' + tipoTag + '</div>'
-      + '<div class="dist-ativo-ticker" style="color:' + color + '">' + a.ticker + '</div>'
+      + '<div class="dist-ativo-ticker" style="color:' + color + ';font-size:' + (isRV ? '14px' : '11px') + ';max-width:80px">' + id + '</div>'
       + '<div class="dist-ativo-bar-wrap">'
         + '<div style="display:flex;justify-content:space-between;align-items:baseline">'
           + '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">' + nome + '</div>'
           + '<div style="font-size:13px;font-weight:800;font-family:var(--mono);margin-left:8px;flex-shrink:0">R$ ' + fmt(a._val) + '</div>'
         + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">'
-          + '<span style="font-size:10px;color:' + vrColor + ';font-family:var(--mono)">' + (vr >= 0 ? '+' : '') + fmt(vrPct, 2) + '%</span>'
-          + '<span style="font-size:10px;color:var(--text-muted)">· ' + fmt(a.qtd, 0) + ' un. × R$ ' + fmt(cot) + '</span>'
-        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">' + detail + '</div>'
         + '<div class="dist-ativo-bar-track" style="margin-top:5px">'
           + '<div class="dist-ativo-bar-fill" style="width:' + pctSeg + '%;background:' + color + '"></div>'
         + '</div>'
@@ -14366,9 +14365,6 @@ function init() {
   if (!hasStoredData) {
     // First run — load sample data
     loadSampleData();
-    loadSampleDividas();
-  } else {
-    // Always ensure sample dividas/cartoes have faturas[] (migration)
     loadSampleDividas();
   }
   // Load avatar if saved
@@ -23840,5 +23836,23 @@ function b3DoImport() {
       </div>
       <div style="font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:auto" id="tvLastUpdate"></div>
     </div>
+
+  <!-- Drill-down overlay — nível global para funcionar em qualquer página -->
+  <div class="dist-drill-overlay" id="distDrillOverlay" onclick="closeDistDrill(event)">
+    <div class="dist-drill-sheet" id="distDrillSheet">
+      <div class="dist-drill-handle"></div>
+      <div class="dist-drill-header">
+        <div class="dist-drill-title">
+          <div class="dist-drill-dot" id="distDrillDot"></div>
+          <div>
+            <div class="dist-drill-name" id="distDrillName">—</div>
+            <div class="dist-drill-meta" id="distDrillMeta"></div>
+          </div>
+        </div>
+        <button class="dist-drill-close" onclick="closeDistDrill()">✕</button>
+      </div>
+      <div class="dist-drill-body" id="distDrillBody"></div>
+    </div>
+  </div>
 </body>
 </html>
