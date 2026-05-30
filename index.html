@@ -318,6 +318,24 @@ select option { background:var(--bg-card); }
 .filter-divider { width:1px; height:18px; background:var(--border); flex-shrink:0; margin:0 2px; }
 
 
+/* ── ATIVOS TABLE ENHANCEMENTS ─────────────────────────────── */
+.rv-ticker-name { font-size:10px; color:var(--text-muted); font-weight:400; line-height:1.2; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rv-alloc-wrap  { display:flex; align-items:center; gap:5px; min-width:70px; }
+.rv-alloc-bar-bg { flex:1; height:5px; border-radius:3px; background:var(--bg-input); overflow:hidden; }
+.rv-alloc-bar   { height:100%; border-radius:3px; background:var(--accent-blue); transition:width 0.4s; }
+.rv-tfoot td    { font-weight:700; background:var(--bg-card); border-top:1px solid var(--border); font-size:12px; padding:7px 12px; }
+.rv-tfoot .up   { color:var(--accent-green); }
+.rv-tfoot .down { color:var(--accent-red); }
+th.rv-sortable  { cursor:pointer; user-select:none; white-space:nowrap; }
+th.rv-sortable:hover { color:var(--accent-blue); }
+th.rv-sortable .sort-arrow { font-size:9px; margin-left:3px; opacity:0.5; }
+th.rv-sortable.asc  .sort-arrow { opacity:1; }
+th.rv-sortable.desc .sort-arrow { opacity:1; }
+.ativos-chg-pill  { font-size:10px; font-weight:600; border-radius:10px; padding:1px 5px; margin-left:2px; }
+.ativos-chg-up    { background:rgba(16,185,129,0.13); color:#10b981; }
+.ativos-chg-down  { background:rgba(239,68,68,0.13);  color:#ef4444; }
+.ativos-chg-flat  { background:rgba(100,116,139,0.13); color:var(--text-muted); }
+
 /* TABS */
 .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; }
 .tab { padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.2s; }
@@ -3885,21 +3903,22 @@ self.addEventListener('fetch', e => {
             <table>
               <thead>
                 <tr>
-                  <th>Ticker</th>
-                  <th>Tipo</th>
-                  <th>Qtd</th>
-                  <th>P. Médio</th>
-                  <th>Cotação</th>
-                  <th>Investido</th>
-                  <th>Atual</th>
-                  <th>Gain/Loss</th>
-                  <th>% Cart.</th>
+                  <th class="rv-sortable" onclick="sortRVTable('ticker')" data-col="ticker">Ticker <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('tipo')" data-col="tipo">Tipo <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('qtd')" data-col="qtd">Qtd <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('precoMedio')" data-col="precoMedio">P. Médio <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('cotacao')" data-col="cotacao">Cotação <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('investido')" data-col="investido">Investido <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('atual')" data-col="atual">Atual <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('gl')" data-col="gl">Gain/Loss <span class="sort-arrow">⇅</span></th>
+                  <th class="rv-sortable" onclick="sortRVTable('pct')" data-col="pct">% Cart. <span class="sort-arrow">⇅</span></th>
                   <th>Setor</th>
                   <th>Banco</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody id="ativosRVBody"></tbody>
+              <tfoot class="rv-tfoot" id="ativosRVFoot"></tfoot>
             </table>
           </div>
         </div>
@@ -8258,27 +8277,83 @@ function updateAlertas(patrimonio) {
   `;
 }
 
+function _ativoNome(ticker) {
+  const ld = (typeof mercadoLiveData !== 'undefined') && mercadoLiveData[(ticker||'').toUpperCase()];
+  return (ld && ld.name && ld.name !== ticker) ? ld.name : '';
+}
+
+var _rvSortState = { col: null, asc: true };
+
+function sortRVTable(col) {
+  if (_rvSortState.col === col) { _rvSortState.asc = !_rvSortState.asc; }
+  else { _rvSortState.col = col; _rvSortState.asc = true; }
+  // Update header arrows
+  document.querySelectorAll('th.rv-sortable').forEach(function(th) {
+    th.classList.remove('asc','desc');
+    if (th.dataset.col === col) th.classList.add(_rvSortState.asc ? 'asc' : 'desc');
+  });
+  updateDashboard();
+}
+
+function _rvSortAtivos(list, patrimonio) {
+  if (!_rvSortState.col) return list;
+  const col = _rvSortState.col, asc = _rvSortState.asc;
+  return [...list].sort(function(a, b) {
+    const ld_a = (typeof mercadoLiveData !== 'undefined') && mercadoLiveData[(a.ticker||'').toUpperCase()];
+    const ld_b = (typeof mercadoLiveData !== 'undefined') && mercadoLiveData[(b.ticker||'').toUpperCase()];
+    const cot_a = (ld_a && ld_a.price) ? ld_a.price : a.precoMedio;
+    const cot_b = (ld_b && ld_b.price) ? ld_b.price : b.precoMedio;
+    var va, vb;
+    if (col==='ticker')    { va=a.ticker; vb=b.ticker; }
+    else if (col==='tipo') { va=a.tipo;   vb=b.tipo; }
+    else if (col==='qtd')  { va=a.qtd;    vb=b.qtd; }
+    else if (col==='precoMedio') { va=a.precoMedio; vb=b.precoMedio; }
+    else if (col==='cotacao')    { va=cot_a; vb=cot_b; }
+    else if (col==='investido')  { va=a.qtd*a.precoMedio; vb=b.qtd*b.precoMedio; }
+    else if (col==='atual')      { va=a.qtd*cot_a; vb=b.qtd*cot_b; }
+    else if (col==='gl') {
+      va = a.precoMedio > 0 ? (cot_a - a.precoMedio) / a.precoMedio : 0;
+      vb = b.precoMedio > 0 ? (cot_b - b.precoMedio) / b.precoMedio : 0;
+    }
+    else if (col==='pct') {
+      va = patrimonio > 0 ? (a.qtd*cot_a)/patrimonio : 0;
+      vb = patrimonio > 0 ? (b.qtd*cot_b)/patrimonio : 0;
+    }
+    else { va=0; vb=0; }
+    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return asc ? va - vb : vb - va;
+  });
+}
+
 function renderTables(patrimonio) {
   // RV Table
   const rvBody = document.getElementById('ativosRVBody');
   rvBody.innerHTML = '';
-  for (const a of state.ativos.filter(a => a.categoria === 'rv')) {
+  const rvAtivos = _rvSortAtivos(state.ativos.filter(a => a.categoria === 'rv'), patrimonio);
+  let totalInvestido = 0, totalAtual = 0;
+  for (const a of rvAtivos) {
     const _ld     = (typeof mercadoLiveData !== 'undefined') && mercadoLiveData[(a.ticker||'').toUpperCase()];
     const cotacao = (_ld && _ld.price) ? _ld.price : a.precoMedio;
     const isLive  = !!(_ld && _ld.price);
     const investido = a.qtd * a.precoMedio;
     const atual = a.qtd * cotacao;
-    const gl = ((cotacao - a.precoMedio) / a.precoMedio) * 100;
-    const pct = (atual / patrimonio) * 100;
+    const gl = a.precoMedio > 0 ? ((cotacao - a.precoMedio) / a.precoMedio) * 100 : 0;
+    const pct = patrimonio > 0 ? (atual / patrimonio) * 100 : 0;
+    totalInvestido += investido; totalAtual += atual;
+    const nome = _ativoNome(a.ticker);
+    const tipoTag = a.tipo === 'Ação' ? 'acao' : a.tipo === 'FII' ? 'fii' : a.tipo === 'BDR' ? 'cdb' : 'etf';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><strong>${a.ticker}</strong></td>
-      <td><span class="tag tag-${a.tipo === 'Ação' ? 'acao' : a.tipo === 'FII' ? 'fii' : 'etf'}">${a.tipo}</span></td>
+      <td>
+        <div><strong>${a.ticker}</strong></div>
+        ${nome ? `<div class="rv-ticker-name" title="${nome}">${nome}</div>` : ''}
+      </td>
+      <td><span class="tag tag-${tipoTag}">${a.tipo}</span></td>
       <td class="mono">${fmt(a.qtd, 0)}</td>
       <td class="mono">R$ ${fmt(a.precoMedio)}</td>
       <td class="mono" style="white-space:nowrap">
         <span style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:11px;color:var(--text-muted)">${isLive ? '<span style="color:var(--accent);font-size:9px">●</span>' : '<span title="Aguardando cotação ao vivo" style="color:var(--text-muted);font-size:9px">○</span>'}</span>
+          <span style="font-size:9px">${isLive ? '<span style="color:var(--accent-green)">●</span>' : '<span title="Aguardando cotação ao vivo" style="color:var(--text-muted)">○</span>'}</span>
           R$ ${fmt(cotacao)}
         </span>
         ${getChgPct(a.ticker) != null ? `<span class="ativos-chg-pill ${getChgPct(a.ticker)>0?'ativos-chg-up':getChgPct(a.ticker)<0?'ativos-chg-down':'ativos-chg-flat'}">${getChgPct(a.ticker)>0?'+':''}${fmt(getChgPct(a.ticker),2)}%</span>` : ''}
@@ -8286,7 +8361,12 @@ function renderTables(patrimonio) {
       <td class="mono">R$ ${fmt(investido)}</td>
       <td class="mono">R$ ${fmt(atual)}</td>
       <td class="mono ${gl >= 0 ? 'up' : 'down'}">${fmtP(gl)}</td>
-      <td class="mono">${fmt(pct)}%</td>
+      <td>
+        <div class="rv-alloc-wrap">
+          <div class="rv-alloc-bar-bg"><div class="rv-alloc-bar" style="width:${Math.min(pct*4,100)}%"></div></div>
+          <span class="mono" style="font-size:11px;min-width:32px;text-align:right">${fmt(pct,1)}%</span>
+        </div>
+      </td>
       <td style="font-size:12px;color:var(--text-muted)">${a.setor}</td>
       <td style="font-size:12px">${a.banco}</td>
       <td>
@@ -8300,6 +8380,21 @@ function renderTables(patrimonio) {
     `;
     rvBody.appendChild(tr);
   }
+
+  // Totals row (tfoot)
+  const rvFoot = document.getElementById('ativosRVFoot');
+  if (rvFoot && rvAtivos.length > 0) {
+    const glTotal = totalInvestido > 0 ? ((totalAtual - totalInvestido) / totalInvestido) * 100 : 0;
+    rvFoot.innerHTML = `<tr>
+      <td colspan="5" style="font-size:11px;color:var(--text-muted);font-weight:400">Total RV (${rvAtivos.length} ativos)</td>
+      <td class="mono">R$ ${fmt(totalInvestido)}</td>
+      <td class="mono">R$ ${fmt(totalAtual)}</td>
+      <td class="mono ${glTotal >= 0 ? 'up' : 'down'}">${glTotal >= 0 ? '+' : ''}${fmt(glTotal,2)}%
+        <div style="font-size:10px;font-weight:400;opacity:.8">R$ ${glTotal >= 0 ? '+' : ''}${fmt(totalAtual - totalInvestido)}</div>
+      </td>
+      <td colspan="4"></td>
+    </tr>`;
+  } else if (rvFoot) { rvFoot.innerHTML = ''; }
 
   // RF Table
   const rfBody = document.getElementById('ativosRFBody');
@@ -14893,19 +14988,20 @@ function _renderFundPanel(panel, ticker, q) {
   if (!panel) return;
 
   const price  = q.regularMarketPrice || 0;
-  const pl     = q.priceEarnings     ?? null;
-  const pvp    = q.priceToBook       ?? null;
-  const dy     = q.dividendYield     ?? null;
-  const roe    = q.returnOnEquity    ?? null;
-  const mg     = q.netMargin         ?? null;
-  const mktcap = q.marketCap         ?? null;
+  // Brapi pode retornar P/L e P/VP com nomes diferentes dependendo da versão
+  const pl     = q.priceEarnings ?? q.trailingPE ?? q.peRatio ?? null;
+  const pvp    = q.priceToBook   ?? q.priceBookValue ?? q.pbRatio ?? null;
+  const dy     = q.dividendYield ?? null;
+  const roe    = q.returnOnEquity ?? null;
+  const mg     = q.netMargin      ?? null;
+  const mktcap = q.marketCap      ?? null;
 
   // Derivar LPA e VPA de P/L e P/VP quando campos diretos não vêm da API
-  const lpa = (q.earningsPerShare  != null) ? q.earningsPerShare
-            : (price > 0 && pl  > 0)        ? price / pl
+  const lpa = (q.earningsPerShare  != null && q.earningsPerShare  !== 0) ? q.earningsPerShare
+            : (price > 0 && pl  > 0) ? price / pl
             : null;
-  const vpa = (q.bookValuePerShare != null) ? q.bookValuePerShare
-            : (price > 0 && pvp > 0)        ? price / pvp
+  const vpa = (q.bookValuePerShare != null && q.bookValuePerShare !== 0) ? q.bookValuePerShare
+            : (price > 0 && pvp > 0) ? price / pvp
             : null;
 
   // Preço Graham: √(22.5 × LPA × VPA)
@@ -22946,11 +23042,21 @@ function b3ReadExcel(file) {
       try {
         var data = new Uint8Array(e.target.result);
         var wb   = XLSX.read(data, { type: 'array' });
-        // Try all sheets and pick the one with most rows
-        var best = '';
+        // Pick the sheet with the most B3-relevant keywords (not just largest)
+        var best = '', bestScore = -1;
         wb.SheetNames.forEach(function(sn) {
           var csv = XLSX.utils.sheet_to_csv(wb.Sheets[sn], { FS: ';', blankrows: false });
-          if (csv.length > best.length) best = csv;
+          var lc  = csv.toLowerCase();
+          var score = 0;
+          if (lc.includes('código') || lc.includes('codigo')) score += 4;
+          if (lc.includes('negociação') || lc.includes('negociacao')) score += 4;
+          if (lc.includes('movimenta')) score += 3;
+          if (lc.includes('quantidade')) score += 2;
+          if (lc.includes('produto')) score += 1;
+          if (lc.includes('instituição') || lc.includes('instituicao')) score += 1;
+          if (score > bestScore || (score === bestScore && csv.length > best.length)) {
+            bestScore = score; best = csv;
+          }
         });
         b3ProcessText(best);
       } catch(err) {
@@ -23040,11 +23146,13 @@ function b3ProcessText(text) {
 
   var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
 
-  // Find header row: contains "código" or "ticker" or "negociação"
+  // Find header row (search up to 30 rows to handle files with many metadata rows)
   var headerIdx = -1;
-  for (var i = 0; i < Math.min(lines.length, 15); i++) {
+  for (var i = 0; i < Math.min(lines.length, 30); i++) {
     var ln = lines[i].toLowerCase();
-    if (ln.includes('código') || ln.includes('codigo') || ln.includes('ticker') || ln.includes('negociação') || ln.includes('negociacao')) {
+    var hasTicker  = ln.includes('código') || ln.includes('codigo') || ln.includes('ticker') || ln.includes('negociação') || ln.includes('negociacao');
+    var hasContext = ln.includes('quantidade') || ln.includes('instituição') || ln.includes('instituicao') || ln.includes('movimenta') || ln.includes('produto');
+    if (hasTicker || (ln.includes('produto') && hasContext)) {
       headerIdx = i; break;
     }
   }
@@ -23068,8 +23176,11 @@ function b3ProcessText(text) {
   var cTipoMov = _b3Col(headers, ['tipo de movimentação','tipo de movimentacao','movimentação','movimentacao','tipo movimentação','tipo movimentacao']);
   var cInstit  = _b3Col(headers, ['instituição','instituicao','corretora','banco','instituição financeira']);
 
-  if (cTicker < 0) {
-    if (errEl) { errEl.textContent = '❌ Coluna de ticker não encontrada. Verifique se o arquivo é do Portal B3.'; errEl.style.display = ''; }
+  // Se não há coluna de ticker dedicada, tentaremos extrair do campo "Produto"
+  var useTickerFromProduto = (cTicker < 0 && cProduto >= 0);
+
+  if (cTicker < 0 && !useTickerFromProduto) {
+    if (errEl) { errEl.textContent = '❌ Coluna de código/ticker não encontrada. Verifique se exportou o arquivo correto do Portal B3.'; errEl.style.display = ''; }
     return;
   }
 
@@ -23081,7 +23192,13 @@ function b3ProcessText(text) {
     var cols = _b3SplitLine(line, sep);
 
     var ticker = cTicker >= 0 ? (cols[cTicker] || '').trim().toUpperCase() : '';
-    // Validate ticker: 4-8 alpha-numeric chars
+    // Se não há coluna de ticker, extrai da coluna Produto (ex: "PETR4 - PETRÓLEO BRAS")
+    if (!ticker && useTickerFromProduto) {
+      var prodText = (cols[cProduto] || '').trim().toUpperCase();
+      var tkMatch  = prodText.match(/^([A-Z]{3,6}[0-9F]{1,3})\b/);
+      if (tkMatch) ticker = tkMatch[1];
+    }
+    // Validate ticker
     if (!ticker || !/^[A-Z]{3,6}[0-9F]{1,3}$/.test(ticker)) continue;
 
     var qtd = cQtd >= 0 ? _b3ParseNum(cols[cQtd]) : null;
