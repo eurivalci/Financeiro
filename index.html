@@ -299,23 +299,26 @@ select option { background:var(--bg-card); }
 .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; padding-top:20px; border-top:1px solid var(--border); }
 
 /* FILTERS */
-.filters-bar { display:flex; align-items:center; gap:5px; margin-bottom:10px; flex-wrap:wrap; }
-.filter-select { padding:0 8px; background:var(--bg-card); border:1px solid var(--border); border-radius:20px; color:var(--text-secondary); font-family:var(--font); font-size:11px; cursor:pointer; height:26px; transition:border-color 0.15s; }
+.filters-bar { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:10px 14px 11px; margin-bottom:12px; }
+.filter-row-1 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.filter-row-2 { display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+.filter-type-lbl { font-size:10.5px; font-weight:700; color:var(--text-muted); white-space:nowrap; flex-shrink:0; letter-spacing:.3px; text-transform:uppercase; }
+.filter-select { padding:0 8px; background:var(--bg-input); border:1px solid var(--border); border-radius:20px; color:var(--text-secondary); font-family:var(--font); font-size:11px; cursor:pointer; height:28px; transition:border-color 0.15s; }
 .filter-select:focus { outline:none; border-color:var(--accent-blue); }
-.search-input { padding:0 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:20px; color:var(--text-primary); font-family:var(--font); font-size:11px; min-width:130px; height:26px; }
+.search-input { flex:1; min-width:150px; max-width:280px; padding:0 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:20px; color:var(--text-primary); font-family:var(--font); font-size:11px; height:28px; }
 .search-input:focus { border-color:var(--accent-blue); outline:none; }
 /* Asset type icon chips */
 .type-chips { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
 .type-chip {
-  display:inline-flex; align-items:center; gap:3px; padding:0 9px; height:26px;
+  display:inline-flex; align-items:center; gap:3px; padding:0 10px; height:26px;
   border-radius:20px; font-size:10.5px; font-weight:600; cursor:pointer;
-  border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted);
+  border:1px solid var(--border); background:var(--bg-input); color:var(--text-muted);
   transition:all 0.15s; white-space:nowrap; user-select:none;
 }
 .type-chip:hover { border-color:var(--border-light); color:var(--text-primary); transform:translateY(-1px); }
 .type-chip.active { color:#fff; border-color:transparent; }
 .type-chip .chip-icon { font-size:12px; line-height:1; }
-.filter-divider { width:1px; height:18px; background:var(--border); flex-shrink:0; margin:0 2px; }
+.filter-divider { display:none; }
 
 
 /* ── ATIVOS TABLE ENHANCEMENTS ─────────────────────────────── */
@@ -337,14 +340,18 @@ th.rv-sortable.desc .sort-arrow { opacity:1; }
 .ativos-chg-flat  { background:rgba(100,116,139,0.13); color:var(--text-muted); }
 
 /* ── FILTER SUMMARY MINI CHARTS ───────────────────────────── */
-.fs-mini-charts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
-.fs-mini-chart-title { font-size:10.5px; font-weight:700; color:var(--text-secondary); margin-bottom:6px; letter-spacing:.4px; text-transform:uppercase; }
-.fs-mini-legend { display:flex; flex-direction:column; gap:3px; margin-top:7px; }
-.fs-mini-leg-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text-secondary); }
-.fs-mini-leg-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.fs-mini-charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+.fs-mini-chart-wrap { background:var(--bg-input); border-radius:10px; padding:12px 14px 10px; }
+.fs-mini-chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.fs-mini-chart-title { font-size:11px; font-weight:700; color:var(--text-secondary); letter-spacing:.4px; text-transform:uppercase; }
+.fs-mini-drill-hint { font-size:9.5px; color:var(--text-muted); }
+.fs-mini-legend { display:flex; flex-direction:column; gap:2px; margin-top:8px; max-height:96px; overflow-y:auto; }
+.fs-mini-leg-item { display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-secondary); padding:3px 5px; border-radius:5px; cursor:pointer; transition:background .12s; }
+.fs-mini-leg-item:hover { background:var(--bg-card-hover); color:var(--text-primary); }
+.fs-mini-leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .fs-mini-leg-label { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.fs-mini-leg-pct { font-weight:700; color:var(--text-primary); }
-@media(max-width:520px){ .fs-mini-charts { grid-template-columns:1fr; } }
+.fs-mini-leg-pct { font-weight:700; color:var(--text-primary); font-family:var(--mono); font-size:10px; }
+@media(max-width:540px){ .fs-mini-charts { grid-template-columns:1fr; } }
 
 /* TABS */
 .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; }
@@ -3855,46 +3862,52 @@ self.addEventListener('fetch', e => {
         <button class="btn btn-secondary btn-sm" onclick="showPage('forecast')" style="font-size:11px;padding:4px 10px;border-color:var(--accent-purple);color:var(--accent-purple)">🔮 Forecast</button>
       </div>
 
-      <!-- COMPACT FILTER BAR -->
+      <!-- FILTER BAR -->
       <div class="filters-bar">
-        <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterAtivos(this.value)" id="searchAtivo">
-        <select class="filter-select" onchange="filterByBanco(this.value)" id="filterBanco">
-          <option value="">🏦 Banco</option>
-        </select>
-        <select class="filter-select" onchange="filterBySetor(this.value)" id="filterSetor">
-          <option value="">🏭 Setor</option>
-        </select>
-        <div class="filter-divider"></div>
-        <div class="type-chips" id="typeChips">
-          <div class="type-chip active" data-tipo="" onclick="selectChip(this,'')">
-            <span class="chip-icon">📂</span> Todos
-          </div>
-          <div class="type-chip" data-tipo="Ação" onclick="selectChip(this,'Ação')" style="--chip-color:#10b981">
-            <span class="chip-icon">📈</span> Ações
-          </div>
-          <div class="type-chip" data-tipo="FII" onclick="selectChip(this,'FII')" style="--chip-color:#f59e0b">
-            <span class="chip-icon">🏢</span> FIIs
-          </div>
-          <div class="type-chip" data-tipo="ETF" onclick="selectChip(this,'ETF')" style="--chip-color:#06b6d4">
-            <span class="chip-icon">🌐</span> ETFs
-          </div>
-          <div class="type-chip" data-tipo="BDR" onclick="selectChip(this,'BDR')" style="--chip-color:#8b5cf6">
-            <span class="chip-icon">🇺🇸</span> BDRs
-          </div>
-          <div class="type-chip" data-tipo="CDB" onclick="selectChip(this,'CDB')" style="--chip-color:#3b82f6">
-            <span class="chip-icon">🏦</span> CDB
-          </div>
-          <div class="type-chip" data-tipo="LCI" onclick="selectChip(this,'LCI')" style="--chip-color:#10b981">
-            <span class="chip-icon">🌿</span> LCI
-          </div>
-          <div class="type-chip" data-tipo="LCA" onclick="selectChip(this,'LCA')" style="--chip-color:#84cc16">
-            <span class="chip-icon">🌾</span> LCA
-          </div>
-          <div class="type-chip" data-tipo="Tesouro" onclick="selectChip(this,'Tesouro')" style="--chip-color:#f97316">
-            <span class="chip-icon">🏛️</span> Tesouro
-          </div>
-          <div class="type-chip" data-tipo="Caixa" onclick="selectChip(this,'Caixa')" style="--chip-color:#22c55e">
-            <span class="chip-icon">💵</span> Caixa
+        <!-- Linha 1: busca + selects -->
+        <div class="filter-row-1">
+          <input type="text" class="search-input" placeholder="🔍 Buscar ticker ou nome…" oninput="filterAtivos(this.value)" id="searchAtivo">
+          <select class="filter-select" onchange="filterByBanco(this.value)" id="filterBanco">
+            <option value="">🏦 Banco / Corretora</option>
+          </select>
+          <select class="filter-select" onchange="filterBySetor(this.value)" id="filterSetor">
+            <option value="">🏭 Setor</option>
+          </select>
+        </div>
+        <!-- Linha 2: chips de tipo -->
+        <div class="filter-row-2">
+          <span class="filter-type-lbl">Tipo</span>
+          <div class="type-chips" id="typeChips">
+            <div class="type-chip active" data-tipo="" onclick="selectChip(this,'')">
+              <span class="chip-icon">📂</span> Todos
+            </div>
+            <div class="type-chip" data-tipo="Ação" onclick="selectChip(this,'Ação')" style="--chip-color:#10b981">
+              <span class="chip-icon">📈</span> Ações
+            </div>
+            <div class="type-chip" data-tipo="FII" onclick="selectChip(this,'FII')" style="--chip-color:#f59e0b">
+              <span class="chip-icon">🏢</span> FIIs
+            </div>
+            <div class="type-chip" data-tipo="ETF" onclick="selectChip(this,'ETF')" style="--chip-color:#06b6d4">
+              <span class="chip-icon">🌐</span> ETFs
+            </div>
+            <div class="type-chip" data-tipo="BDR" onclick="selectChip(this,'BDR')" style="--chip-color:#8b5cf6">
+              <span class="chip-icon">🇺🇸</span> BDRs
+            </div>
+            <div class="type-chip" data-tipo="CDB" onclick="selectChip(this,'CDB')" style="--chip-color:#3b82f6">
+              <span class="chip-icon">🏦</span> CDB
+            </div>
+            <div class="type-chip" data-tipo="LCI" onclick="selectChip(this,'LCI')" style="--chip-color:#10b981">
+              <span class="chip-icon">🌿</span> LCI
+            </div>
+            <div class="type-chip" data-tipo="LCA" onclick="selectChip(this,'LCA')" style="--chip-color:#84cc16">
+              <span class="chip-icon">🌾</span> LCA
+            </div>
+            <div class="type-chip" data-tipo="Tesouro" onclick="selectChip(this,'Tesouro')" style="--chip-color:#f97316">
+              <span class="chip-icon">🏛️</span> Tesouro
+            </div>
+            <div class="type-chip" data-tipo="Caixa" onclick="selectChip(this,'Caixa')" style="--chip-color:#22c55e">
+              <span class="chip-icon">💵</span> Caixa
+            </div>
           </div>
         </div>
       </div>
@@ -3950,7 +3963,7 @@ self.addEventListener('fetch', e => {
                   <th>Aplicado</th>
                   <th>Atualizado</th>
                   <th>Gain</th>
-                  <th>Banco</th>
+                  <th>Emissor / Corretora</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -6988,10 +7001,19 @@ self.addEventListener('fetch', e => {
         <div class="form-group">
           <label>Banco Emissor</label>
           <div class="banco-wrap">
-            <input type="text" class="banco-input" id="rfBanco" placeholder="Digite ou selecione..." autocomplete="off"
+            <input type="text" class="banco-input" id="rfBanco" placeholder="Ex: Banco Inter, Nubank…" autocomplete="off"
               oninput="bancoCombInput(this,'rfBancoDropdown')" onfocus="bancoCombFocus(this,'rfBancoDropdown')" onblur="bancoCombBlur('rfBancoDropdown')" onkeydown="bancoCombKey(event,'rfBancoDropdown')">
             <span class="banco-input-arrow">▾</span>
             <div class="banco-dropdown" id="rfBancoDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Banco / Corretora onde comprou</label>
+          <div class="banco-wrap">
+            <input type="text" class="banco-input" id="rfCorretora" placeholder="Ex: XP, Rico, BTG…" autocomplete="off"
+              oninput="bancoCombInput(this,'rfCorretoraDropdown')" onfocus="bancoCombFocus(this,'rfCorretoraDropdown')" onblur="bancoCombBlur('rfCorretoraDropdown')" onkeydown="bancoCombKey(event,'rfCorretoraDropdown')">
+            <span class="banco-input-arrow">▾</span>
+            <div class="banco-dropdown" id="rfCorretoraDropdown"></div>
           </div>
         </div>
       </div>
@@ -8299,14 +8321,84 @@ function _ativoNome(ticker) {
 
 var _rvSortState   = { col: null, asc: true };
 var _fsMiniCharts  = { setor: null, banco: null };
+var _fsMiniRvAtivos = []; // cached for legend click drill-down
+
+function fsDrillFromLeg(el) {
+  openFsDrill(el.dataset.dim, el.dataset.label, el.dataset.color, _fsMiniRvAtivos);
+}
+
+function openFsDrill(dimension, label, color, rvAtivos) {
+  var ativos = rvAtivos.filter(function(a) {
+    if (dimension === 'setor') return (a.setor || 'Outros') === label;
+    if (dimension === 'banco') return (a.banco  || 'Outros') === label;
+    return false;
+  });
+  if (!ativos.length) return;
+
+  var patrimonio = calcPatrimonio();
+  var withVal = ativos.map(function(a) {
+    return Object.assign({}, a, { _val: a.qtd * getCotacao(a.ticker, a.precoMedio) });
+  }).sort(function(a, b) { return b._val - a._val; });
+
+  var totalSeg = withVal.reduce(function(s, a) { return s + a._val; }, 0);
+  var pctPat   = patrimonio > 0 ? totalSeg / patrimonio * 100 : 0;
+
+  // Reuse existing dist-drill overlay
+  var dot  = document.getElementById('distDrillDot');
+  var name = document.getElementById('distDrillName');
+  var meta = document.getElementById('distDrillMeta');
+  if (dot)  dot.style.background = color;
+  if (name) name.textContent     = label;
+  if (meta) meta.innerHTML =
+    '<strong style="color:' + color + '">R$ ' + fmt(totalSeg) + '</strong>&nbsp;·&nbsp;' +
+    '<strong style="color:' + color + '">' + fmt(pctPat, 1) + '%</strong> do patrimônio&nbsp;·&nbsp;' +
+    ativos.length + ' ativo' + (ativos.length !== 1 ? 's' : '');
+
+  var body = document.getElementById('distDrillBody');
+  if (!body) return;
+
+  body.innerHTML = withVal.map(function(a) {
+    var pctSeg = totalSeg  > 0 ? a._val / totalSeg  * 100 : 0;
+    var pctTot = patrimonio > 0 ? a._val / patrimonio * 100 : 0;
+    var cot    = getCotacao(a.ticker, a.precoMedio);
+    var vr     = cot - a.precoMedio;
+    var vrPct  = a.precoMedio > 0 ? vr / a.precoMedio * 100 : 0;
+    var vrColor = vr >= 0 ? '#10b981' : '#ef4444';
+    var nome    = _ativoNome(a.ticker) || a.ticker;
+    var tipoTag = a.tipo === 'FII' ? '🏢' : a.tipo === 'ETF' ? '📦' : a.tipo === 'BDR' ? '🌎' : '📈';
+    return '<div class="dist-ativo-row">'
+      + '<div style="font-size:18px;flex-shrink:0">' + tipoTag + '</div>'
+      + '<div class="dist-ativo-ticker" style="color:' + color + '">' + a.ticker + '</div>'
+      + '<div class="dist-ativo-bar-wrap">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline">'
+          + '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">' + nome + '</div>'
+          + '<div style="font-size:13px;font-weight:800;font-family:var(--mono);margin-left:8px;flex-shrink:0">R$ ' + fmt(a._val) + '</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">'
+          + '<span style="font-size:10px;color:' + vrColor + ';font-family:var(--mono)">' + (vr >= 0 ? '+' : '') + fmt(vrPct, 2) + '%</span>'
+          + '<span style="font-size:10px;color:var(--text-muted)">· ' + fmt(a.qtd, 0) + ' un. × R$ ' + fmt(cot) + '</span>'
+        + '</div>'
+        + '<div class="dist-ativo-bar-track" style="margin-top:5px">'
+          + '<div class="dist-ativo-bar-fill" style="width:' + pctSeg + '%;background:' + color + '"></div>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:2px">'
+          + '<span style="font-size:9px;color:var(--text-muted)">' + fmt(pctSeg, 1) + '% do segmento</span>'
+          + '<span style="font-size:9px;color:var(--text-muted)">' + fmt(pctTot, 1) + '% do patrimônio</span>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+
+  var overlay = document.getElementById('distDrillOverlay');
+  if (overlay) { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
 
 function renderAtivosMiniCharts(rvAtivos) {
+  _fsMiniRvAtivos = rvAtivos; // save for legend clicks
+
   // Destroy stale instances to avoid "Canvas is already in use" error
   ['setor','banco'].forEach(function(k) {
-    if (_fsMiniCharts[k]) {
-      try { _fsMiniCharts[k].destroy(); } catch(e) {}
-      _fsMiniCharts[k] = null;
-    }
+    if (_fsMiniCharts[k]) { try { _fsMiniCharts[k].destroy(); } catch(e) {} _fsMiniCharts[k] = null; }
   });
 
   var setorCanvas = document.getElementById('fsChartSetor');
@@ -8315,52 +8407,57 @@ function renderAtivosMiniCharts(rvAtivos) {
 
   var COLORS = ['#3b82f6','#10b981','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#f97316','#ec4899','#14b8a6','#a855f7'];
 
-  // Build aggregation maps
   var setorMap = {}, bancoMap = {};
   rvAtivos.forEach(function(a) {
     var val = a.qtd * getCotacao(a.ticker, a.precoMedio);
-    var s = a.setor || 'Outros';
-    var b = a.banco  || 'Outros';
-    setorMap[s] = (setorMap[s] || 0) + val;
-    bancoMap[b] = (bancoMap[b] || 0) + val;
+    setorMap[a.setor || 'Outros'] = (setorMap[a.setor || 'Outros'] || 0) + val;
+    bancoMap[a.banco  || 'Outros'] = (bancoMap[a.banco  || 'Outros'] || 0) + val;
   });
 
-  function makeMini(canvas, map, legendId) {
-    var labels = Object.keys(map);
+  function makeMini(canvas, map, legendId, dim) {
+    var labels = Object.keys(map).sort(function(a,b){ return map[b]-map[a]; });
     var data   = labels.map(function(l){ return map[l]; });
     var total  = data.reduce(function(s,v){ return s+v; }, 0);
     if (!labels.length) return null;
-    // Legend
+
     var legEl = document.getElementById(legendId);
     if (legEl) {
       legEl.innerHTML = labels.map(function(l, i) {
         var pct = total > 0 ? data[i] / total * 100 : 0;
-        return '<div class="fs-mini-leg-item">'
-          + '<div class="fs-mini-leg-dot" style="background:' + COLORS[i % COLORS.length] + '"></div>'
+        var col = COLORS[i % COLORS.length];
+        return '<div class="fs-mini-leg-item" onclick="fsDrillFromLeg(this)"'
+          + ' data-dim="' + dim + '" data-label="' + l.replace(/"/g,'&quot;') + '" data-color="' + col + '">'
+          + '<div class="fs-mini-leg-dot" style="background:' + col + '"></div>'
           + '<span class="fs-mini-leg-label">' + l + '</span>'
           + '<span class="fs-mini-leg-pct">' + fmt(pct, 1) + '%</span>'
           + '</div>';
       }).join('');
     }
+
     return new Chart(canvas, {
       type: 'doughnut',
-      data: { labels: labels, datasets: [{ data: data, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }] },
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 10 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: function(ctx) {
             var tot = ctx.dataset.data.reduce(function(s,v){ return s+v; }, 0);
-            return ' R$ ' + fmt(ctx.raw) + ' (' + fmt(tot > 0 ? ctx.raw / tot * 100 : 0, 1) + '%)';
+            return ' R$ ' + fmt(ctx.raw) + ' (' + fmt(tot > 0 ? ctx.raw/tot*100 : 0, 1) + '%)';
           }}}
         },
-        cutout: '58%'
+        cutout: '60%',
+        onClick: function(evt, elements) {
+          if (!elements.length) return;
+          var idx = elements[0].index;
+          openFsDrill(dim, labels[idx], COLORS[idx % COLORS.length], rvAtivos);
+        }
       }
     });
   }
 
-  _fsMiniCharts.setor = makeMini(setorCanvas, setorMap, 'fsLegSetor');
-  _fsMiniCharts.banco = makeMini(bancoCanvas, bancoMap, 'fsLegBanco');
+  _fsMiniCharts.setor = makeMini(setorCanvas, setorMap, 'fsLegSetor', 'setor');
+  _fsMiniCharts.banco = makeMini(bancoCanvas, bancoMap, 'fsLegBanco', 'banco');
 }
 
 function sortRVTable(col) {
@@ -8422,6 +8519,7 @@ function renderTables(patrimonio) {
     const nome = _ativoNome(a.ticker);
     const tipoTag = a.tipo === 'Ação' ? 'acao' : a.tipo === 'FII' ? 'fii' : a.tipo === 'BDR' ? 'cdb' : 'etf';
     const tr = document.createElement('tr');
+    tr.dataset.id = a.id;
     tr.innerHTML = `
       <td>
         <div><strong>${a.ticker}</strong></div>
@@ -8482,6 +8580,7 @@ function renderTables(patrimonio) {
     const atualizado = calcRFAtualizado(a);
     const gl = ((atualizado - a.valorAplicado) / a.valorAplicado) * 100;
     const tr = document.createElement('tr');
+    tr.dataset.id = a.id;
     tr.innerHTML = `
       <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${a.nome}"><strong>${a.nome}</strong></td>
       <td><span class="tag tag-${a.tipo.includes('Tesouro') ? 'tesouro' : 'cdb'}">${a.tipo}</span></td>
@@ -8491,7 +8590,10 @@ function renderTables(patrimonio) {
       <td class="mono">R$ ${fmt(a.valorAplicado)}</td>
       <td class="mono up">R$ ${fmt(atualizado)}</td>
       <td class="mono up">${fmtP(gl)}</td>
-      <td>${a.banco}</td>
+      <td style="font-size:12px">
+        <div style="font-weight:600">${a.banco}</div>
+        ${a.corretora ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px">via ${a.corretora}</div>` : ''}
+      </td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-secondary btn-sm" onclick="editAtivo(${a.id})">✏️</button>
@@ -8519,6 +8621,7 @@ function renderTables(patrimonio) {
       const pct = patrimonio > 0 ? (a.saldo / patrimonio * 100) : 0;
       const tipoLabel = { 'Conta Corrente':'🏦 C/C', 'Poupança':'🪙 Poupança', 'Carteira Digital':'📱 Digital', 'Corretora':'📈 Corretora' }[a.tipoCaixa] || a.tipoCaixa || '🏦 C/C';
       const tr = document.createElement('tr');
+      tr.dataset.id = a.id;
       tr.innerHTML = `
         <td><strong>${a.banco}</strong></td>
         <td><span style="font-size:11px;color:var(--text-muted)">${tipoLabel}</span></td>
@@ -8567,7 +8670,10 @@ function renderTables(patrimonio) {
 }
 
 function updateFilterOptions() {
-  const bancos = [...new Set(state.ativos.map(a => a.banco).filter(Boolean))];
+  // Include both banco (emissor) and corretora (onde comprou) in the bank dropdown
+  const bancosSet = new Set();
+  state.ativos.forEach(a => { if (a.banco) bancosSet.add(a.banco); if (a.corretora) bancosSet.add(a.corretora); });
+  const bancos = [...bancosSet].sort();
   const setores = [...new Set(state.ativos.map(a => a.setor).filter(Boolean))];
   
   const filterBanco = document.getElementById('filterBanco');
@@ -10104,7 +10210,7 @@ function openModal(mode, id = null) {
   document.getElementById('fieldsRF').style.display = 'none';
   document.getElementById('fieldsCaixa').style.display = 'none';
   // Clear banco combobox inputs
-  ['rvBanco','rfBanco','caixaBanco'].forEach(id => {
+  ['rvBanco','rfBanco','rfCorretora','caixaBanco'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -10137,7 +10243,8 @@ function populateModal(a) {
     document.getElementById('rfValorAplicado').value = a.valorAplicado || '';
     document.getElementById('rfDataAplicacao').value = a.dataAplicacao || '';
     document.getElementById('rfDataVencimento').value = a.dataVencimento || '';
-    document.getElementById('rfBanco').value = a.banco || '';
+    document.getElementById('rfBanco').value     = a.banco     || '';
+    document.getElementById('rfCorretora').value = a.corretora || '';
   } else if (a.categoria === 'caixa') {
     document.getElementById('caixaBanco').value = a.banco || '';
     document.getElementById('caixaTipo').value  = a.tipoCaixa || 'Conta Corrente';
@@ -10174,15 +10281,17 @@ function saveAtivo() {
     const nome = document.getElementById('rfNome').value.trim();
     const val = parseFloat(document.getElementById('rfValorAplicado').value);
     if (!nome || !val) { alert('Preencha todos os campos obrigatórios!'); return; }
-    const banco = document.getElementById('rfBanco').value.trim() || 'Não informado';
+    const banco     = document.getElementById('rfBanco').value.trim() || 'Não informado';
+    const corretora = document.getElementById('rfCorretora').value.trim();
     addBancoToList(banco);
+    if (corretora) addBancoToList(corretora);
     ativo = { ...ativo, nome, tipo: document.getElementById('rfTipo').value,
       indexador: document.getElementById('rfIndexador').value,
       taxa: parseFloat(document.getElementById('rfTaxa').value) || 100,
       valorAplicado: val,
       dataAplicacao: document.getElementById('rfDataAplicacao').value || new Date().toISOString().split('T')[0],
       dataVencimento: document.getElementById('rfDataVencimento').value,
-      banco };
+      banco, corretora: corretora || undefined };
   } else if (cat === 'caixa') {
     const banco     = document.getElementById('caixaBanco').value.trim() || 'Não informado';
     const tipoCaixa = document.getElementById('caixaTipo').value || 'Conta Corrente';
@@ -10499,62 +10608,58 @@ function applyFilters() {
   let rvGainFiltrado = 0;
   let proventosFiltrados = 0;
   const patrimonio = calcPatrimonio();
+  const q = search.toLowerCase();
 
-  // RV rows
-  const rvAtivos = state.ativos.filter(a => a.categoria === 'rv');
-  document.querySelectorAll('#ativosRVBody tr').forEach((row, i) => {
-    const text = row.textContent.toLowerCase();
-    const matchSearch = !search || text.includes(search.toLowerCase());
-    const matchBanco  = !banco  || text.includes(banco.toLowerCase());
-    const matchSetor  = !setor  || text.includes(setor.toLowerCase());
-    const matchTipo   = !tipo   || text.includes(tipo.toLowerCase());
+  // RV rows — match exato por campo (data-id para lookup)
+  document.querySelectorAll('#ativosRVBody tr').forEach(row => {
+    const a = state.ativos.find(x => x.id === parseInt(row.dataset.id));
+    if (!a) { row.style.display = 'none'; return; }
+    const nomeLive = (_ativoNome(a.ticker) || '').toLowerCase();
+    const matchSearch = !search || a.ticker.toLowerCase().includes(q) || nomeLive.includes(q);
+    const matchBanco  = !banco  || a.banco  === banco;
+    const matchSetor  = !setor  || a.setor  === setor;
+    const matchTipo   = !tipo   || a.tipo   === tipo;
     const visible = matchSearch && matchBanco && matchSetor && matchTipo;
     row.style.display = visible ? '' : 'none';
-    if (visible && rvAtivos[i]) {
-      const a = rvAtivos[i];
+    if (visible) {
       const val = a.qtd * getCotacao(a.ticker, a.precoMedio);
       const inv = a.qtd * a.precoMedio;
-      rvValorFiltrado += val;
+      rvValorFiltrado  += val;
       rvInvestFiltrado += inv;
-      rvGainFiltrado += (val - inv);
+      rvGainFiltrado   += (val - inv);
       proventosFiltrados += (a.proventos || 0);
       rvVisible++;
     }
   });
 
-  // RF rows
-  const rfAtivos = state.ativos.filter(a => a.categoria === 'rf');
-  document.querySelectorAll('#ativosRFBody tr').forEach((row, i) => {
-    const text = row.textContent.toLowerCase();
-    const matchSearch = !search || text.includes(search.toLowerCase());
-    const matchBanco  = !banco  || text.includes(banco.toLowerCase());
-    const matchTipo   = !tipo   || text.includes(tipo.toLowerCase());
+  // RF rows — match exato; banco filtra emissor OU corretora
+  document.querySelectorAll('#ativosRFBody tr').forEach(row => {
+    const a = state.ativos.find(x => x.id === parseInt(row.dataset.id));
+    if (!a) { row.style.display = 'none'; return; }
+    const matchSearch = !search || (a.nome || '').toLowerCase().includes(q);
+    const matchBanco  = !banco  || a.banco === banco || (a.corretora || '') === banco;
+    const matchTipo   = !tipo   || a.tipo === tipo || (tipo === 'Tesouro' && a.tipo.startsWith('Tesouro'));
     const visible = matchSearch && matchBanco && matchTipo;
     row.style.display = visible ? '' : 'none';
-    if (visible && rfAtivos[i]) {
-      const a = rfAtivos[i];
-      rfValorFiltrado += calcRFAtualizado(a);
+    if (visible) {
+      rfValorFiltrado  += calcRFAtualizado(a);
       rfInvestFiltrado += a.valorAplicado;
       rfVisible++;
     }
   });
 
-  // Caixa rows
+  // Caixa rows — match exato por campo
   let caixaVisible = 0, caixaValorFiltrado = 0;
-  const caixaAtivos = state.ativos.filter(a => a.categoria === 'caixa');
   ['#ativosCaixaCCBody tr','#ativosCaixaCorrBody tr'].forEach(sel => {
     document.querySelectorAll(sel).forEach(row => {
-      const text = row.textContent.toLowerCase();
-      const matchSearch = !search || text.includes(search.toLowerCase());
-      const matchBanco  = !banco  || text.includes(banco.toLowerCase());
+      const a = state.ativos.find(x => x.id === parseInt(row.dataset.id));
+      if (!a) { row.style.display = 'none'; return; }
+      const matchSearch = !search || (a.banco || '').toLowerCase().includes(q);
+      const matchBanco  = !banco  || a.banco === banco;
       const matchTipo   = !tipo   || tipo === 'Caixa';
       const visible = matchSearch && matchBanco && matchTipo;
       row.style.display = visible ? '' : 'none';
-      if (visible) {
-        const id = row.querySelector('button[onclick*="editAtivo"]')?.getAttribute('onclick')?.match(/\d+/)?.[0];
-        const a  = id ? caixaAtivos.find(x => x.id == id) : null;
-        if (a) { caixaValorFiltrado += a.saldo || 0; caixaVisible++; }
-      }
+      if (visible) { caixaValorFiltrado += a.saldo || 0; caixaVisible++; }
     });
   });
 
@@ -10750,14 +10855,20 @@ function renderFilterSummary(d) {
       ${d.rvVisible > 0 ? `
       <!-- Mini distribution charts -->
       <div class="fs-mini-charts">
-        <div>
-          <div class="fs-mini-chart-title">🏭 Por Setor</div>
-          <div class="chart-container" style="height:150px"><canvas id="fsChartSetor"></canvas></div>
+        <div class="fs-mini-chart-wrap">
+          <div class="fs-mini-chart-header">
+            <div class="fs-mini-chart-title">🏭 Por Setor</div>
+            <div class="fs-mini-drill-hint">👆 clique para detalhar</div>
+          </div>
+          <div class="chart-container" style="height:220px"><canvas id="fsChartSetor"></canvas></div>
           <div class="fs-mini-legend" id="fsLegSetor"></div>
         </div>
-        <div>
-          <div class="fs-mini-chart-title">🏦 Por Banco / Corretora</div>
-          <div class="chart-container" style="height:150px"><canvas id="fsChartBanco"></canvas></div>
+        <div class="fs-mini-chart-wrap">
+          <div class="fs-mini-chart-header">
+            <div class="fs-mini-chart-title">🏦 Por Banco / Corretora</div>
+            <div class="fs-mini-drill-hint">👆 clique para detalhar</div>
+          </div>
+          <div class="chart-container" style="height:220px"><canvas id="fsChartBanco"></canvas></div>
           <div class="fs-mini-legend" id="fsLegBanco"></div>
         </div>
       </div>` : ''}
@@ -10787,7 +10898,7 @@ function renderFilterTags() {
   const { search, banco, setor, tipo } = activeFilters;
   const tags = [];
   if (search) tags.push({ label: `🔍 "${search}"`, clear: () => { activeFilters.search = ''; document.getElementById('searchAtivo').value = ''; applyFilters(); } });
-  if (banco)  tags.push({ label: `🏦 ${banco}`,   clear: () => { activeFilters.banco  = ''; document.getElementById('filterDividaBanco').value  = ''; applyFilters(); } });
+  if (banco)  tags.push({ label: `🏦 ${banco}`,   clear: () => { activeFilters.banco  = ''; const fb = document.getElementById('filterBanco'); if(fb) fb.value = ''; applyFilters(); } });
   if (setor)  tags.push({ label: `🏭 ${setor}`,   clear: () => { activeFilters.setor  = ''; document.getElementById('filterSetor').value  = ''; applyFilters(); } });
   if (tipo)   tags.push({ label: `📂 ${tipo}`,    clear: () => { activeFilters.tipo   = ''; selectChip(document.querySelector('.type-chip[data-tipo=""]'), ''); } });
 
