@@ -8327,17 +8327,21 @@ function fsDrillFromLeg(el) {
   openFsDrill(el.dataset.dim, el.dataset.label, el.dataset.color, _fsMiniRvAtivos);
 }
 
-function openFsDrill(dimension, label, color, rvAtivos) {
-  var ativos = rvAtivos.filter(function(a) {
-    if (dimension === 'setor') return (a.setor || 'Outros') === label;
+function openFsDrill(dimension, label, color, allAtivos) {
+  var ativos = allAtivos.filter(function(a) {
+    if (dimension === 'tipo')  return (a.tipo  || 'Outros') === label;
     if (dimension === 'banco') return (a.banco  || 'Outros') === label;
+    if (dimension === 'setor') return (a.setor  || 'Outros') === label;
     return false;
   });
   if (!ativos.length) return;
 
   var patrimonio = calcPatrimonio();
   var withVal = ativos.map(function(a) {
-    return Object.assign({}, a, { _val: a.qtd * getCotacao(a.ticker, a.precoMedio) });
+    var val = a.categoria === 'rv' ? a.qtd * getCotacao(a.ticker, a.precoMedio)
+            : a.categoria === 'rf' ? calcRFAtualizado(a)
+            : (a.saldo || 0);
+    return Object.assign({}, a, { _val: val });
   }).sort(function(a, b) { return b._val - a._val; });
 
   var totalSeg = withVal.reduce(function(s, a) { return s + a._val; }, 0);
@@ -8393,25 +8397,27 @@ function openFsDrill(dimension, label, color, rvAtivos) {
   if (overlay) { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
 }
 
-function renderAtivosMiniCharts(rvAtivos) {
-  _fsMiniRvAtivos = rvAtivos; // save for legend clicks
+function renderAtivosMiniCharts(allAtivos) {
+  _fsMiniRvAtivos = allAtivos; // save for legend clicks
 
   // Destroy stale instances to avoid "Canvas is already in use" error
-  ['setor','banco'].forEach(function(k) {
+  ['tipo','banco'].forEach(function(k) {
     if (_fsMiniCharts[k]) { try { _fsMiniCharts[k].destroy(); } catch(e) {} _fsMiniCharts[k] = null; }
   });
 
-  var setorCanvas = document.getElementById('fsChartSetor');
+  var tipoCanvas  = document.getElementById('fsChartTipo');
   var bancoCanvas = document.getElementById('fsChartBanco');
-  if (!setorCanvas || !bancoCanvas || !rvAtivos.length) return;
+  if (!tipoCanvas || !bancoCanvas || !allAtivos.length) return;
 
   var COLORS = ['#3b82f6','#10b981','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#f97316','#ec4899','#14b8a6','#a855f7'];
 
-  var setorMap = {}, bancoMap = {};
-  rvAtivos.forEach(function(a) {
-    var val = a.qtd * getCotacao(a.ticker, a.precoMedio);
-    setorMap[a.setor || 'Outros'] = (setorMap[a.setor || 'Outros'] || 0) + val;
-    bancoMap[a.banco  || 'Outros'] = (bancoMap[a.banco  || 'Outros'] || 0) + val;
+  var tipoMap = {}, bancoMap = {};
+  allAtivos.forEach(function(a) {
+    var val = a.categoria === 'rv' ? a.qtd * getCotacao(a.ticker, a.precoMedio)
+            : a.categoria === 'rf' ? calcRFAtualizado(a)
+            : (a.saldo || 0);
+    tipoMap[a.tipo  || 'Outros'] = (tipoMap[a.tipo  || 'Outros'] || 0) + val;
+    bancoMap[a.banco || 'Outros'] = (bancoMap[a.banco || 'Outros'] || 0) + val;
   });
 
   function makeMini(canvas, map, legendId, dim) {
@@ -8450,13 +8456,13 @@ function renderAtivosMiniCharts(rvAtivos) {
         onClick: function(evt, elements) {
           if (!elements.length) return;
           var idx = elements[0].index;
-          openFsDrill(dim, labels[idx], COLORS[idx % COLORS.length], rvAtivos);
+          openFsDrill(dim, labels[idx], COLORS[idx % COLORS.length], allAtivos);
         }
       }
     });
   }
 
-  _fsMiniCharts.setor = makeMini(setorCanvas, setorMap, 'fsLegSetor', 'setor');
+  _fsMiniCharts.tipo  = makeMini(tipoCanvas,  tipoMap,  'fsLegTipo',  'tipo');
   _fsMiniCharts.banco = makeMini(bancoCanvas, bancoMap, 'fsLegBanco', 'banco');
 }
 
@@ -10853,16 +10859,16 @@ function renderFilterSummary(d) {
         </div>
       </div>` : ''}
 
-      ${d.rvVisible > 0 ? `
+      ${totalVisible > 0 ? `
       <!-- Mini distribution charts -->
       <div class="fs-mini-charts">
         <div class="fs-mini-chart-wrap">
           <div class="fs-mini-chart-header">
-            <div class="fs-mini-chart-title">🏭 Por Setor</div>
+            <div class="fs-mini-chart-title">📊 Por Tipo de Ativo</div>
             <div class="fs-mini-drill-hint">👆 clique para detalhar</div>
           </div>
-          <div class="chart-container" style="height:220px"><canvas id="fsChartSetor"></canvas></div>
-          <div class="fs-mini-legend" id="fsLegSetor"></div>
+          <div class="chart-container" style="height:220px"><canvas id="fsChartTipo"></canvas></div>
+          <div class="fs-mini-legend" id="fsLegTipo"></div>
         </div>
         <div class="fs-mini-chart-wrap">
           <div class="fs-mini-chart-header">
@@ -10879,17 +10885,16 @@ function renderFilterSummary(d) {
   `;
 
   // Render mini charts after innerHTML is set (needs DOM elements to exist)
-  if (d.rvVisible > 0) {
-    const rvFilt = state.ativos.filter(a => {
-      if (a.categoria !== 'rv') return false;
+  if (totalVisible > 0) {
+    const allFilt = state.ativos.filter(a => {
       const { search, banco, setor, tipo } = activeFilters;
-      if (search && !a.ticker.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !(a.ticker || a.nome || '').toLowerCase().includes(search.toLowerCase())) return false;
       if (banco  && a.banco  !== banco)  return false;
       if (setor  && a.setor  !== setor)  return false;
       if (tipo   && a.tipo   !== tipo)   return false;
       return true;
     });
-    renderAtivosMiniCharts(rvFilt);
+    renderAtivosMiniCharts(allFilt);
   }
 }
 
