@@ -2709,6 +2709,36 @@ select option { background:var(--bg-card); }
 .mp-up   { color:var(--accent-green) !important; }
 .mp-down { color:var(--accent-red)   !important; }
 
+/* ── FUNDAMENTALS INLINE ROW ── */
+.fund-row > td { padding:0 !important; border-bottom:2px solid var(--accent-blue) !important; }
+.fund-panel { padding:14px 18px; background:rgba(59,130,246,0.03); }
+.fund-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.fund-chip { background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 13px; min-width:72px; }
+.fund-chip-label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
+.fund-chip-val { font-family:var(--mono); font-weight:700; font-size:14px; }
+.fund-valuation { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.fund-val-card { flex:1; min-width:160px; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:9px 14px; }
+.fund-val-name { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.fund-val-price { font-family:var(--mono); font-weight:800; font-size:17px; color:var(--text-primary); }
+.fund-val-upside { font-size:11px; font-weight:600; margin-top:3px; }
+.fund-signal-buy  { color:#10b981; }
+.fund-signal-sell { color:#ef4444; }
+.fund-signal-neutral { color:#f59e0b; }
+.fund-footer { font-size:10px; color:var(--text-muted); padding-top:6px; border-top:1px solid var(--border); }
+.fund-btn-active { background:rgba(59,130,246,0.15) !important; color:var(--accent-blue) !important; }
+
+/* ── GRAHAM CALCULATOR & TABLE ── */
+.graham-result { background:var(--bg-primary); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+.graham-price  { font-family:var(--mono); font-weight:800; font-size:28px; color:var(--text-primary); }
+.graham-signal { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; font-size:12px; font-weight:700; margin-top:8px; }
+.graham-signal-buy     { background:rgba(16,185,129,.12); color:#10b981; }
+.graham-signal-sell    { background:rgba(239,68,68,.12);  color:#ef4444; }
+.graham-signal-neutral { background:rgba(245,158,11,.12); color:#f59e0b; }
+.graham-cart-table { width:100%; border-collapse:collapse; font-size:12px; }
+.graham-cart-table th { padding:8px 12px; text-align:left; color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); }
+.graham-cart-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
+.graham-formula { font-family:var(--mono); font-size:16px; text-align:center; padding:14px; background:var(--bg-primary); border-radius:8px; border:1px solid var(--border); margin-bottom:14px; letter-spacing:.5px; }
+
 /* ── PERFORMANCE STRIP (compact) ── */
 .perf-strip { display:flex; align-items:center; gap:14px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:7px 14px; margin-bottom:14px; flex-wrap:wrap; }
 .ps-label { font-size:10px; font-weight:700; color:var(--text-muted); letter-spacing:.4px; text-transform:uppercase; margin-right:2px; }
@@ -4221,6 +4251,7 @@ self.addEventListener('fetch', e => {
         <div class="sim-tab active" data-simtab="rebal" onclick="switchSimTab(this)">🔄 Rebalanceamento</div>
         <div class="sim-tab" data-simtab="rendimento" onclick="switchSimTab(this)">📈 Rendimento</div>
         <div class="sim-tab" data-simtab="fire" onclick="switchSimTab(this)">🔥 FIRE</div>
+        <div class="sim-tab" data-simtab="graham" onclick="switchSimTab(this)">⚖️ Graham</div>
       </div>
 
       <!-- ── TAB: REBALANCEAMENTO ── -->
@@ -4387,6 +4418,58 @@ self.addEventListener('fetch', e => {
             <canvas id="chartFIRE"></canvas>
           </div>
           <div id="fireCenarios" style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: GRAHAM ── -->
+      <div class="sim-tabpanel" id="simtab-graham">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+          <!-- Calculadora -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚖️ Calculadora de Preço Justo</div></div>
+            <div style="padding:4px 0">
+              <div class="form-group" style="margin-bottom:12px">
+                <label style="font-size:12px;color:var(--text-muted)">LPA — Lucro por Ação (R$)</label>
+                <input type="number" id="grLPA" class="fc-input" style="width:100%;box-sizing:border-box" placeholder="ex: 5.20" step="0.01" oninput="calcGrahamSimul()">
+              </div>
+              <div class="form-group" style="margin-bottom:12px">
+                <label style="font-size:12px;color:var(--text-muted)">VPA — Valor Patrimonial por Ação (R$)</label>
+                <input type="number" id="grVPA" class="fc-input" style="width:100%;box-sizing:border-box" placeholder="ex: 28.50" step="0.01" oninput="calcGrahamSimul()">
+              </div>
+              <div class="form-group" style="margin-bottom:4px">
+                <label style="font-size:12px;color:var(--text-muted)">Cotação Atual (R$) <span style="opacity:.6">— opcional</span></label>
+                <input type="number" id="grPreco" class="fc-input" style="width:100%;box-sizing:border-box" placeholder="ex: 38.90" step="0.01" oninput="calcGrahamSimul()">
+              </div>
+              <div id="grahamCalcResult"></div>
+            </div>
+          </div>
+
+          <!-- Sobre a fórmula -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">📖 Sobre a Fórmula</div></div>
+            <div style="font-size:13px;line-height:1.75;color:var(--text-secondary)">
+              <div class="graham-formula">P = √( 22,5 × LPA × VPA )</div>
+              <p style="margin:0 0 10px"><strong>LPA</strong> — Lucro por Ação: quanto a empresa lucrou por ação no último exercício.</p>
+              <p style="margin:0 0 10px"><strong>VPA</strong> — Valor Patrimonial por Ação: patrimônio líquido ÷ nº de ações em circulação.</p>
+              <p style="margin:0 0 10px">O fator <strong>22,5</strong> deriva dos critérios de Graham: P/L ≤ 15 e P/VP ≤ 1,5 (15 × 1,5 = 22,5).</p>
+              <p style="margin:0;color:var(--text-muted);font-size:11px">⚠️ Válido apenas para empresas com LPA e VPA positivos. FIIs, empresas em prejuízo e startups exigem outras métricas.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela carteira -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Minha Carteira vs Preço Justo Graham</div>
+            <button class="btn btn-primary btn-sm" onclick="grahamAnalisarCarteira()">🔍 Analisar Carteira</button>
+          </div>
+          <div id="grahamCarteiraWrap">
+            <div class="empty-state" style="padding:24px">
+              <div class="empty-icon">⚖️</div>
+              Clique em "Analisar Carteira" para calcular o Preço Graham de cada ativo via Brapi.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -5942,6 +6025,19 @@ self.addEventListener('fetch', e => {
       <span class="fc-chip" onclick="document.getElementById('fcPergunta').value=this.textContent;forecastPergunta()" style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3)">Onde devo aportar para melhorar minha diversificação?</span>
     </div>
     <div id="fcAssistenteRes" style="margin-top:12px;display:none"></div>
+  </div>
+
+  <!-- Graham Forecast -->
+  <div class="fc-search-card" style="margin-top:12px">
+    <div class="fc-search-header">
+      <span class="fc-search-title">⚖️ Análise Graham da Carteira</span>
+      <span style="font-size:11px;color:var(--text-muted)">Preço Justo de Benjamin Graham para cada ativo da carteira</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="grahamForecastTabela()" style="font-size:12px">📊 Ver tabela</button>
+      <button class="btn btn-primary" onclick="grahamForecastIA()" style="font-size:12px;background:linear-gradient(135deg,#10b981,#3b82f6)">🤖 Analisar com IA</button>
+    </div>
+    <div id="fcGrahamResult" style="margin-top:10px;display:none"></div>
   </div>
 
   <!-- Estado vazio / erro -->
@@ -8052,7 +8148,8 @@ function renderTables(patrimonio) {
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-secondary btn-sm" onclick="editAtivo(${a.id})" title="Editar">✏️</button>
-          <button class="btn btn-secondary btn-sm" onclick="openEvtCorp('${a.ticker||''}',${a.id})" title="Evento corporativo (split/grupamento)">📊</button>
+          <button class="btn btn-secondary btn-sm" id="fundbtn-${a.ticker}" onclick="toggleFundamentals('${a.ticker}',this)" title="Fundamentos">📈</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEvtCorp('${a.ticker||''}',${a.id})" title="Evento corporativo">📊</button>
           <button class="btn btn-danger btn-sm" onclick="deleteAtivo(${a.id})" title="Excluir">🗑️</button>
         </div>
       </td>
@@ -14566,6 +14663,372 @@ function renderMultiperiodo() {
     </tbody>
   </table></div>
   <div style="font-size:10px;color:var(--text-muted);margin-top:6px;padding:0 4px">* 1D via dados ao vivo · períodos históricos de índices requerem API histórica</div>`;
+}
+
+// =========================================================
+// FUNDAMENTALS — inline panel per RV asset
+// =========================================================
+const fundamentalsCache = {};
+
+function toggleFundamentals(ticker, btn) {
+  const tr       = btn.closest('tr');
+  const existing = document.getElementById('fund-row-' + ticker);
+  if (existing) {
+    existing.remove();
+    btn.classList.remove('fund-btn-active');
+    btn.title = 'Fundamentos';
+    return;
+  }
+  btn.classList.add('fund-btn-active');
+  btn.title = 'Fechar';
+
+  const detailTr = document.createElement('tr');
+  detailTr.id        = 'fund-row-' + ticker;
+  detailTr.className = 'fund-row';
+  detailTr.innerHTML = `<td colspan="12"><div class="fund-panel" id="fund-panel-${ticker}">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px">
+      <div style="width:14px;height:14px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0"></div>
+      Buscando fundamentos de <strong>${ticker}</strong>…
+    </div>
+  </div></td>`;
+  tr.insertAdjacentElement('afterend', detailTr);
+  fetchFundamentals(ticker);
+}
+
+async function fetchFundamentals(ticker) {
+  const panel = document.getElementById('fund-panel-' + ticker);
+  if (!panel) return;
+
+  const cached = fundamentalsCache[ticker];
+  if (cached && Date.now() - cached.ts < 3600000) {
+    _renderFundPanel(panel, ticker, cached.data);
+    return;
+  }
+  try {
+    const token = getBrapiToken();
+    const url   = `https://brapi.dev/api/quote/${encodeURIComponent(ticker)}?fundamental=true${token ? '&token=' + token : '&token=demo'}`;
+    const resp  = await fetch(url, { signal: mkAbort(12000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json  = await resp.json();
+    const q     = (json.results || [])[0];
+    if (!q) throw new Error('sem dados');
+    fundamentalsCache[ticker] = { data: q, ts: Date.now() };
+    _renderFundPanel(panel, ticker, q);
+  } catch(e) {
+    if (panel) panel.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:4px 0">
+      ⚠️ Não foi possível carregar fundamentos de <strong>${ticker}</strong>. ${e.message}
+    </div>`;
+  }
+}
+
+function _renderFundPanel(panel, ticker, q) {
+  if (!panel) return;
+
+  const price  = q.regularMarketPrice || 0;
+  const pl     = q.priceEarnings     ?? null;
+  const pvp    = q.priceToBook       ?? null;
+  const dy     = q.dividendYield     ?? null;   // decimal: 0.085 = 8.5%
+  const roe    = q.returnOnEquity    ?? null;   // decimal
+  const mg     = q.netMargin         ?? null;   // decimal
+  const lpa    = q.earningsPerShare  ?? null;
+  const vpa    = q.bookValuePerShare ?? null;
+  const mktcap = q.marketCap         ?? null;
+
+  // Preço Graham: √(22.5 × LPA × VPA)  — só válido se LPA > 0 e VPA > 0
+  const graham = (lpa > 0 && vpa > 0) ? Math.sqrt(22.5 * lpa * vpa) : null;
+
+  // Preço Bazin: DPA anual / 0.06   onde DPA = preço × DY
+  const dpa   = (dy != null && dy > 0 && price > 0) ? price * dy : null;
+  const bazin = dpa ? dpa / 0.06 : null;
+
+  const pctFmt = v => v != null ? (v * 100).toFixed(1) + '%' : '—';
+  const multFmt = v => v != null ? fmt(v, 1) + 'x' : '—';
+  const capFmt  = v => v != null ? (v >= 1e9 ? 'R$ ' + fmt(v/1e9, 1) + 'B' : 'R$ ' + fmt(v/1e6, 0) + 'M') : '—';
+
+  const chip = (label, val, color) => `
+    <div class="fund-chip">
+      <div class="fund-chip-label">${label}</div>
+      <div class="fund-chip-val" style="color:${color || 'var(--text-primary)'}">${val}</div>
+    </div>`;
+
+  const plColor  = pl  != null ? (pl  > 0 && pl  < 15 ? '#10b981' : pl  > 30 ? '#ef4444' : 'var(--text-primary)') : '';
+  const pvpColor = pvp != null ? (pvp > 0 && pvp < 1.5 ? '#10b981' : pvp > 3  ? '#ef4444' : 'var(--text-primary)') : '';
+  const dyColor  = dy  != null ? (dy  > 0.06 ? '#10b981' : dy > 0.03 ? '#f59e0b' : 'var(--text-primary)') : '';
+  const roeColor = roe != null ? (roe > 0.15 ? '#10b981' : roe < 0.05 ? '#ef4444' : 'var(--text-primary)') : '';
+  const mgColor  = mg  != null ? (mg  > 0.15 ? '#10b981' : mg  < 0   ? '#ef4444' : 'var(--text-primary)') : '';
+
+  const valCard = (name, formula, target) => {
+    if (!target || !price) return '';
+    const upside = (target / price - 1) * 100;
+    const cls    = upside > 10 ? 'fund-signal-buy' : upside < -10 ? 'fund-signal-sell' : 'fund-signal-neutral';
+    const label  = upside > 10 ? '✅ Desconto' : upside < -10 ? '🔴 Acima' : '🟡 Neutro';
+    return `<div class="fund-val-card">
+      <div class="fund-val-name">${name} <span style="font-weight:400;opacity:.7">${formula}</span></div>
+      <div class="fund-val-price">R$ ${fmt(target)}</div>
+      <div class="fund-val-upside ${cls}">${upside >= 0 ? '+' : ''}${fmt(upside, 1)}% vs cotação · ${label}</div>
+    </div>`;
+  };
+
+  const now = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+  panel.innerHTML = `
+    <div class="fund-chips">
+      ${chip('P/L',    multFmt(pl),  plColor)}
+      ${chip('P/VP',   multFmt(pvp), pvpColor)}
+      ${chip('DY',     pctFmt(dy),   dyColor)}
+      ${chip('ROE',    pctFmt(roe),  roeColor)}
+      ${chip('Margem', pctFmt(mg),   mgColor)}
+      ${lpa  != null ? chip('LPA', 'R$ ' + fmt(lpa, 2),  '') : ''}
+      ${vpa  != null ? chip('VPA', 'R$ ' + fmt(vpa, 2),  '') : ''}
+      ${chip('Mkt Cap', capFmt(mktcap), '')}
+    </div>
+    ${(graham || bazin) ? `<div class="fund-valuation">
+      ${valCard('Graham',  '√(22,5 × LPA × VPA)', graham)}
+      ${valCard('Bazin', 'DPA ÷ 6%', bazin)}
+    </div>` : '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">⚠️ LPA ou VPA indisponível — Graham e Bazin não calculados.</div>'}
+    <div class="fund-footer">📡 Brapi · ${ticker} · ${now} · Valores baseados nos últimos dados fundamentalistas disponíveis</div>`;
+}
+
+// =========================================================
+// GRAHAM — Calculadora + Análise de carteira + Forecast IA
+// =========================================================
+
+// ── Calculadora standalone (aba Simulador) ────────────────
+function calcGrahamSimul() {
+  const lpa   = parseFloat(document.getElementById('grLPA').value)   || 0;
+  const vpa   = parseFloat(document.getElementById('grVPA').value)   || 0;
+  const preco = parseFloat(document.getElementById('grPreco').value) || 0;
+  const res   = document.getElementById('grahamCalcResult');
+  if (!res) return;
+
+  if (lpa <= 0 || vpa <= 0) { res.innerHTML = ''; return; }
+
+  const graham = Math.sqrt(22.5 * lpa * vpa);
+  const upside = preco > 0 ? (graham / preco - 1) * 100 : null;
+  const cls    = upside == null ? 'neutral'
+               : upside > 10   ? 'buy'
+               : upside < -10  ? 'sell'
+               : 'neutral';
+  const label  = upside == null ? ''
+               : upside > 10   ? '✅ Abaixo do preço justo — potencial de compra'
+               : upside < -10  ? '🔴 Acima do preço justo — atenção ao risco'
+               : '🟡 Próximo do preço justo — neutro';
+
+  res.innerHTML = `<div class="graham-result">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Preço Justo Graham</div>
+    <div class="graham-price">R$ ${fmt(graham)}</div>
+    ${upside != null ? `
+      <div class="graham-signal graham-signal-${cls}">${label}</div>
+      <div style="margin-top:12px;display:flex;gap:20px;flex-wrap:wrap;font-size:12px">
+        <span>Cotação: <strong class="mono">R$ ${fmt(preco)}</strong></span>
+        <span>Upside: <strong class="mono ${upside>=0?'up':'down'}">${upside>=0?'+':''}${fmt(upside,1)}%</strong></span>
+        <span>P/L implícito: <strong class="mono">${fmt(preco/lpa,1)}×</strong></span>
+        <span>P/VP implícito: <strong class="mono">${fmt(preco/vpa,2)}×</strong></span>
+      </div>` : ''}
+  </div>`;
+}
+
+// ── Portfolio table (aba Simulador) ──────────────────────
+async function grahamAnalisarCarteira() {
+  const wrap    = document.getElementById('grahamCarteiraWrap');
+  if (!wrap) return;
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  if (!rvAtivos.length) {
+    wrap.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-icon">📋</div>Nenhum ativo de Renda Variável na carteira.</div>';
+    return;
+  }
+  wrap.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">
+    <div style="width:18px;height:18px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+    Buscando fundamentos de ${rvAtivos.length} ativos…
+  </div>`;
+  const results = await _grahamFetchAll(rvAtivos.map(a => a.ticker));
+  wrap.innerHTML = _grahamBuildTable(rvAtivos, results);
+}
+
+// ── Forecast: só tabela ───────────────────────────────────
+async function grahamForecastTabela() {
+  const el = document.getElementById('fcGrahamResult');
+  if (!el) return;
+  el.style.display = 'block';
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  if (!rvAtivos.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Nenhum ativo RV na carteira.</div>'; return; }
+  el.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">
+    <div style="width:16px;height:16px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+    Buscando fundamentos…</div>`;
+  const results = await _grahamFetchAll(rvAtivos.map(a => a.ticker));
+  el.innerHTML  = _grahamBuildTable(rvAtivos, results);
+}
+
+// ── Forecast: tabela + Gemini ─────────────────────────────
+async function grahamForecastIA() {
+  const el     = document.getElementById('fcGrahamResult');
+  const apiKey = localStorage.getItem('fc_gk') || '';
+  if (!el) return;
+  el.style.display = 'block';
+
+  if (!apiKey) {
+    el.innerHTML = `<div style="padding:12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:13px">
+      ⚠️ Configure sua <strong>Gemini API Key</strong> nas <a href="#" onclick="showPage('config')" style="color:var(--accent-blue)">Configurações</a> para usar a análise com IA.
+    </div>`;
+    return;
+  }
+
+  const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
+  if (!rvAtivos.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Nenhum ativo RV na carteira.</div>'; return; }
+
+  el.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">
+    <div style="width:16px;height:16px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+    Buscando fundamentos…</div>`;
+
+  const results  = await _grahamFetchAll(rvAtivos.map(a => a.ticker));
+  const tableHtml = _grahamBuildTable(rvAtivos, results);
+
+  el.innerHTML = tableHtml + `<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;margin-top:10px">
+    <div style="width:14px;height:14px;border:2px solid #10b981;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:6px;vertical-align:middle"></div>
+    Gemini analisando via Graham…</div>`;
+
+  // Build context for Gemini
+  const linhas = rvAtivos.map(a => {
+    const r = results[a.ticker];
+    if (!r || r.graham == null) return `${a.ticker}: dados indisponíveis`;
+    const price  = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[a.ticker]?.price) || a.precoMedio;
+    const upside = (r.graham / price - 1) * 100;
+    return `${a.ticker}: cotação R$${fmt(price,2)} | Graham R$${fmt(r.graham,2)} | upside ${upside>=0?'+':''}${fmt(upside,1)}% | P/L ${r.pl?fmt(r.pl,1)+'×':'—'} | P/VP ${r.pvp?fmt(r.pvp,2)+'×':'—'}`;
+  }).join('\n');
+
+  const prompt = `Você é um analista fundamentalista seguidor da filosofia de Benjamin Graham e Warren Buffett.
+
+Analise a carteira de investimentos abaixo com base no Preço Justo de Graham (√(22,5 × LPA × VPA)):
+
+${linhas}
+
+Responda de forma objetiva e direta:
+1. Quais ativos estão com desconto em relação ao Preço Graham (oportunidades de valor)?
+2. Quais estão acima do Preço Graham (risco de pagamento excessivo)?
+3. Qual a leitura geral da carteira pela ótica do investimento em valor?
+4. Uma sugestão prática de ação para o investidor.
+
+Use no máximo 4 parágrafos curtos e linguagem clara.`;
+
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      signal: mkAbort(30000)
+    });
+    const json = await resp.json();
+    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta do modelo.';
+    const html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n\n/g, '</p><p style="margin:0 0 10px">')
+      .replace(/\n/g, '<br>');
+    el.innerHTML = tableHtml + `<div style="margin-top:14px;padding:16px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;font-size:13px;line-height:1.75;color:var(--text-secondary)">
+      <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🤖 Análise Gemini · Filosofia Graham</div>
+      <p style="margin:0 0 10px">${html}</p>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = tableHtml + `<div style="color:var(--text-muted);font-size:12px;margin-top:8px">⚠️ Erro na análise IA: ${e.message}</div>`;
+  }
+}
+
+// ── Shared helpers ────────────────────────────────────────
+async function _grahamFetchAll(tickers) {
+  const results = {};
+  const token   = getBrapiToken();
+  for (const tkr of tickers) {
+    // Reuse cache from fundamentals panel (1h TTL)
+    const cached = fundamentalsCache[tkr];
+    if (cached && Date.now() - cached.ts < 3600000) {
+      results[tkr] = _grahamExtract(cached.data);
+      continue;
+    }
+    try {
+      const url  = `https://brapi.dev/api/quote/${encodeURIComponent(tkr)}?fundamental=true${token ? '&token=' + token : '&token=demo'}`;
+      const resp = await fetch(url, { signal: mkAbort(10000) });
+      const json = await resp.json();
+      const q    = (json.results || [])[0];
+      if (q) {
+        fundamentalsCache[tkr] = { data: q, ts: Date.now() };
+        results[tkr] = _grahamExtract(q);
+      } else { results[tkr] = null; }
+    } catch(e) { results[tkr] = null; }
+  }
+  return results;
+}
+
+function _grahamExtract(q) {
+  const lpa  = q.earningsPerShare  ?? null;
+  const vpa  = q.bookValuePerShare ?? null;
+  const price = q.regularMarketPrice ?? null;
+  return {
+    lpa, vpa, price,
+    graham: (lpa > 0 && vpa > 0) ? Math.sqrt(22.5 * lpa * vpa) : null,
+    pl:  q.priceEarnings ?? null,
+    pvp: q.priceToBook   ?? null,
+    dy:  q.dividendYield ?? null,
+  };
+}
+
+function _grahamBuildTable(ativos, results) {
+  // Sort: discounts first (upside desc), then no-data at end
+  const sorted = [...ativos].sort((a, b) => {
+    const ra = results[a.ticker], rb = results[b.ticker];
+    const prA = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[a.ticker]?.price) || a.precoMedio;
+    const prB = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[b.ticker]?.price) || b.precoMedio;
+    const uA = ra?.graham ? (ra.graham / prA - 1) * 100 : -999;
+    const uB = rb?.graham ? (rb.graham / prB - 1) * 100 : -999;
+    return uB - uA;
+  });
+
+  const rows = sorted.map(a => {
+    const r     = results[a.ticker];
+    const price = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[a.ticker]?.price) || a.precoMedio;
+    if (!r || r.graham == null) {
+      return `<tr>
+        <td><strong>${a.ticker}</strong></td>
+        <td class="mono">R$ ${fmt(price)}</td>
+        <td class="mono" style="color:var(--text-muted)">—</td>
+        <td class="mono" style="color:var(--text-muted)">—</td>
+        <td class="mono" style="color:var(--text-muted)">—</td>
+        <td style="color:var(--text-muted)">—</td>
+        <td style="color:var(--text-muted);font-size:11px">Dados indisponíveis</td>
+      </tr>`;
+    }
+    const upside = (r.graham / price - 1) * 100;
+    const uCls   = upside > 10 ? 'fund-signal-buy' : upside < -10 ? 'fund-signal-sell' : 'fund-signal-neutral';
+    const signal = upside > 10 ? '✅ Desconto' : upside < -10 ? '🔴 Acima' : '🟡 Neutro';
+    return `<tr>
+      <td><strong>${a.ticker}</strong></td>
+      <td class="mono">R$ ${fmt(price)}</td>
+      <td class="mono">${r.lpa != null ? 'R$ '+fmt(r.lpa,2) : '—'}</td>
+      <td class="mono">${r.vpa != null ? 'R$ '+fmt(r.vpa,2) : '—'}</td>
+      <td class="mono" style="font-weight:700">R$ ${fmt(r.graham)}</td>
+      <td class="mono ${uCls}" style="font-weight:700">${upside>=0?'+':''}${fmt(upside,1)}%</td>
+      <td><span class="${uCls}" style="font-size:12px;font-weight:600">${signal}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Summary KPIs
+  const comDados  = sorted.filter(a => results[a.ticker]?.graham != null);
+  const desconto  = comDados.filter(a => { const r=results[a.ticker]; const p=(typeof mercadoLiveData!=='undefined'&&mercadoLiveData[a.ticker]?.price)||a.precoMedio; return r.graham/p > 1.10; });
+  const acima     = comDados.filter(a => { const r=results[a.ticker]; const p=(typeof mercadoLiveData!=='undefined'&&mercadoLiveData[a.ticker]?.price)||a.precoMedio; return r.graham/p < 0.90; });
+
+  return `<div style="display:flex;gap:12px;padding:12px 16px;background:var(--bg-primary);border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <span style="font-size:12px">📊 <strong>${comDados.length}</strong> ativos analisados</span>
+    <span style="font-size:12px;color:#10b981">✅ <strong>${desconto.length}</strong> com desconto Graham</span>
+    <span style="font-size:12px;color:#f59e0b">🟡 <strong>${comDados.length-desconto.length-acima.length}</strong> neutros</span>
+    <span style="font-size:12px;color:#ef4444">🔴 <strong>${acima.length}</strong> acima do Graham</span>
+  </div>
+  <div style="overflow-x:auto"><table class="graham-cart-table">
+    <thead><tr>
+      <th>Ticker</th><th>Cotação</th><th>LPA</th><th>VPA</th><th>Graham</th><th>Upside</th><th>Sinal</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div style="font-size:10px;color:var(--text-muted);padding:8px 14px;border-top:1px solid var(--border)">
+    📡 Brapi · Graham = √(22,5 × LPA × VPA) · Ordenado por maior desconto · Cache 1h
+  </div>`;
 }
 
 // =========================================================
