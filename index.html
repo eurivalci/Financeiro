@@ -336,6 +336,16 @@ th.rv-sortable.desc .sort-arrow { opacity:1; }
 .ativos-chg-down  { background:rgba(239,68,68,0.13);  color:#ef4444; }
 .ativos-chg-flat  { background:rgba(100,116,139,0.13); color:var(--text-muted); }
 
+/* ── FILTER SUMMARY MINI CHARTS ───────────────────────────── */
+.fs-mini-charts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+.fs-mini-chart-title { font-size:10.5px; font-weight:700; color:var(--text-secondary); margin-bottom:6px; letter-spacing:.4px; text-transform:uppercase; }
+.fs-mini-legend { display:flex; flex-direction:column; gap:3px; margin-top:7px; }
+.fs-mini-leg-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text-secondary); }
+.fs-mini-leg-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.fs-mini-leg-label { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fs-mini-leg-pct { font-weight:700; color:var(--text-primary); }
+@media(max-width:520px){ .fs-mini-charts { grid-template-columns:1fr; } }
+
 /* TABS */
 .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; }
 .tab { padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; transition:all 0.2s; }
@@ -6890,20 +6900,25 @@ self.addEventListener('fetch', e => {
         </div>
         <div class="form-group">
           <label>Setor</label>
-          <select id="rvSetor">
-            <option value="Financeiro">Financeiro</option>
-            <option value="Energia">Energia</option>
-            <option value="Petróleo e Gás">Petróleo e Gás</option>
-            <option value="Mineração">Mineração</option>
-            <option value="Varejo">Varejo</option>
-            <option value="Saúde">Saúde</option>
-            <option value="Tecnologia">Tecnologia</option>
-            <option value="Telecomunicações">Telecomunicações</option>
-            <option value="Logística">Logística</option>
-            <option value="Agronegócio">Agronegócio</option>
-            <option value="Imobiliário">Imobiliário (FII)</option>
-            <option value="Outros">Outros</option>
-          </select>
+          <input type="text" id="rvSetor" list="rvSetorList" placeholder="Ex: Financeiro, Energia…" autocomplete="off">
+          <datalist id="rvSetorList">
+            <option value="Financeiro">
+            <option value="Energia">
+            <option value="Petróleo e Gás">
+            <option value="Mineração">
+            <option value="Varejo">
+            <option value="Saúde">
+            <option value="Tecnologia">
+            <option value="Telecomunicações">
+            <option value="Logística">
+            <option value="Agronegócio">
+            <option value="Imobiliário (FII)">
+            <option value="Utilidade Pública">
+            <option value="Construção Civil">
+            <option value="Educação">
+            <option value="Transportes">
+            <option value="Outros">
+          </datalist>
         </div>
         <div class="form-group">
           <label>Banco/Corretora</label>
@@ -8282,7 +8297,71 @@ function _ativoNome(ticker) {
   return (ld && ld.name && ld.name !== ticker) ? ld.name : '';
 }
 
-var _rvSortState = { col: null, asc: true };
+var _rvSortState   = { col: null, asc: true };
+var _fsMiniCharts  = { setor: null, banco: null };
+
+function renderAtivosMiniCharts(rvAtivos) {
+  // Destroy stale instances to avoid "Canvas is already in use" error
+  ['setor','banco'].forEach(function(k) {
+    if (_fsMiniCharts[k]) {
+      try { _fsMiniCharts[k].destroy(); } catch(e) {}
+      _fsMiniCharts[k] = null;
+    }
+  });
+
+  var setorCanvas = document.getElementById('fsChartSetor');
+  var bancoCanvas = document.getElementById('fsChartBanco');
+  if (!setorCanvas || !bancoCanvas || !rvAtivos.length) return;
+
+  var COLORS = ['#3b82f6','#10b981','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#f97316','#ec4899','#14b8a6','#a855f7'];
+
+  // Build aggregation maps
+  var setorMap = {}, bancoMap = {};
+  rvAtivos.forEach(function(a) {
+    var val = a.qtd * getCotacao(a.ticker, a.precoMedio);
+    var s = a.setor || 'Outros';
+    var b = a.banco  || 'Outros';
+    setorMap[s] = (setorMap[s] || 0) + val;
+    bancoMap[b] = (bancoMap[b] || 0) + val;
+  });
+
+  function makeMini(canvas, map, legendId) {
+    var labels = Object.keys(map);
+    var data   = labels.map(function(l){ return map[l]; });
+    var total  = data.reduce(function(s,v){ return s+v; }, 0);
+    if (!labels.length) return null;
+    // Legend
+    var legEl = document.getElementById(legendId);
+    if (legEl) {
+      legEl.innerHTML = labels.map(function(l, i) {
+        var pct = total > 0 ? data[i] / total * 100 : 0;
+        return '<div class="fs-mini-leg-item">'
+          + '<div class="fs-mini-leg-dot" style="background:' + COLORS[i % COLORS.length] + '"></div>'
+          + '<span class="fs-mini-leg-label">' + l + '</span>'
+          + '<span class="fs-mini-leg-pct">' + fmt(pct, 1) + '%</span>'
+          + '</div>';
+      }).join('');
+    }
+    return new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(ctx) {
+            var tot = ctx.dataset.data.reduce(function(s,v){ return s+v; }, 0);
+            return ' R$ ' + fmt(ctx.raw) + ' (' + fmt(tot > 0 ? ctx.raw / tot * 100 : 0, 1) + '%)';
+          }}}
+        },
+        cutout: '58%'
+      }
+    });
+  }
+
+  _fsMiniCharts.setor = makeMini(setorCanvas, setorMap, 'fsLegSetor');
+  _fsMiniCharts.banco = makeMini(bancoCanvas, bancoMap, 'fsLegBanco');
+}
 
 function sortRVTable(col) {
   if (_rvSortState.col === col) { _rvSortState.asc = !_rvSortState.asc; }
@@ -10046,7 +10125,7 @@ function populateModal(a) {
     document.getElementById('rvTipo').value = a.tipo || 'Ação';
     document.getElementById('rvQtd').value = a.qtd || '';
     document.getElementById('rvPrecoMedio').value = a.precoMedio || '';
-    document.getElementById('rvSetor').value = a.setor || 'Outros';
+    document.getElementById('rvSetor').value = a.setor || '';
     document.getElementById('rvBanco').value = a.banco || '';
     document.getElementById('rvProventos').value = a.proventos || 0;
     document.getElementById('rvCotacao').value = a.cotacao || '';
@@ -10667,9 +10746,39 @@ function renderFilterSummary(d) {
           `).join('')}
         </div>
       </div>` : ''}
+
+      ${d.rvVisible > 0 ? `
+      <!-- Mini distribution charts -->
+      <div class="fs-mini-charts">
+        <div>
+          <div class="fs-mini-chart-title">🏭 Por Setor</div>
+          <div class="chart-container" style="height:150px"><canvas id="fsChartSetor"></canvas></div>
+          <div class="fs-mini-legend" id="fsLegSetor"></div>
+        </div>
+        <div>
+          <div class="fs-mini-chart-title">🏦 Por Banco / Corretora</div>
+          <div class="chart-container" style="height:150px"><canvas id="fsChartBanco"></canvas></div>
+          <div class="fs-mini-legend" id="fsLegBanco"></div>
+        </div>
+      </div>` : ''}
+
       ` : '<div style="text-align:center;padding:16px 0;color:var(--text-muted);font-size:13px">Ajuste os filtros acima para ver resultados</div>'}
     </div>
   `;
+
+  // Render mini charts after innerHTML is set (needs DOM elements to exist)
+  if (d.rvVisible > 0) {
+    const rvFilt = state.ativos.filter(a => {
+      if (a.categoria !== 'rv') return false;
+      const { search, banco, setor, tipo } = activeFilters;
+      if (search && !a.ticker.toLowerCase().includes(search.toLowerCase())) return false;
+      if (banco  && a.banco  !== banco)  return false;
+      if (setor  && a.setor  !== setor)  return false;
+      if (tipo   && a.tipo   !== tipo)   return false;
+      return true;
+    });
+    renderAtivosMiniCharts(rvFilt);
+  }
 }
 
 function renderFilterTags() {
