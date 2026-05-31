@@ -24665,9 +24665,11 @@ function b3ppReadExcel(file) {
           var csv = XLSX.utils.sheet_to_csv(wb.Sheets[sn], { FS: ';', blankrows: false });
           var lc  = csv.toLowerCase();
           var score = 0;
+          if (lc.includes('pagamento') && lc.includes('tipo de evento')) score += 8; // Proventos format
           if (lc.includes('movimenta')) score += 5;
-          if (lc.includes('dividendo') || lc.includes('provento')) score += 4;
+          if (lc.includes('dividendo') || lc.includes('rendimento') || lc.includes('provento')) score += 4;
           if (lc.includes('produto')) score += 2;
+          if (lc.includes('valor') && lc.includes('quantidade')) score += 2;
           if (lc.includes('institui')) score += 1;
           if (score > bestScore || (score === bestScore && csv.length > best.length)) {
             bestScore = score; best = csv;
@@ -24694,24 +24696,47 @@ function b3ppReadExcel(file) {
 }
 
 // Map B3 movimentação type → app provento type
-function _b3ppTipoProvento(mov) {
-  var m = (mov || '').toLowerCase().trim();
-  if (m.includes('dividendo')) return 'Dividendo';
-  if (m.includes('juros sobre capital') || m === 'jcp') return 'JCP';
-  if (m.includes('rendimento')) return 'Rendimento';
-  if (m.includes('amortiza')) return 'Amortização';
-  if (m.includes('juros')) return 'JCP';
-  if (m.includes('royalt')) return 'Rendimento';
-  return null; // not a provento type — skip
+// Parse monetary values with R$ prefix: "R$0,92" → 0.92, "R$4.600,00" → 4600.00
+function _b3ppParseNum(s) {
+  if (!s) return null;
+  // Strip R$, currency symbol, spaces
+  var clean = s.replace(/R\$\s*/g, '').replace(/\s/g, '');
+  // If dot is thousand separator (has comma after): remove dots first, then swap comma→dot
+  // Pattern: 1.234,56 → remove dots → 1234,56 → swap → 1234.56
+  if (/\d+\.\d{3},/.test(clean) || /\d+,\d{2}$/.test(clean)) {
+    clean = clean.replace(/\./g, '').replace(',', '.');
+  } else {
+    // Already decimal dot or single comma
+    clean = clean.replace(/,/g, '.');
+  }
+  var n = parseFloat(clean);
+  return isNaN(n) ? null : n;
 }
 
-// Extract ticker from B3 Produto field: "PETR4 - PETROBRAS PN N2" → "PETR4"
+// Map B3 "Tipo de Evento" → app provento tipo, considering the produto name for FII detection
+function _b3ppMapTipoEvento(tipo, produto) {
+  var t = (tipo || '').toLowerCase().trim();
+  var p = (produto || '').toLowerCase();
+  if (t.includes('dividendo')) return 'Dividendo';
+  if (t.includes('juros sobre capital') || t === 'jcp') return 'JCP';
+  if (t.includes('juros') && !t.includes('tesouro')) return 'JCP';
+  if (t.includes('juros') && t.includes('tesouro')) return 'Juros Tesouro';
+  if (t.includes('rendimento')) {
+    var isFII = p.includes('fii') || p.includes('imob') || p.includes('fundo imobili') || p.includes(' ci ') || p.includes(' er ');
+    return isFII ? 'Rendimento FII' : 'Rendimento';
+  }
+  if (t.includes('amortiza')) return 'Amortização';
+  if (t.includes('leilão') || t.includes('leilao') || t.includes('fracao') || t.includes('fração')) return 'Leilão de Fração';
+  if (t.includes('reembolso')) return 'Reembolso';
+  // Unknown — return raw value (will show with default icon)
+  return tipo || 'Rendimento';
+}
+
+// Extract ticker from B3 Produto field: "XPML11 - XP MALLS FDO INV IMOB FII" → "XPML11"
 function _b3ppTicker(produto) {
   if (!produto) return '';
   var clean = produto.trim();
-  // Tesouro Direto — keep as-is (no dash separation by ticker)
   if (clean.toLowerCase().includes('tesouro')) return clean.split('-')[0].trim() || clean;
-  // Standard: "TICK4 - Full Name..." or "TICK11CI ER - ..."
   var dashIdx = clean.indexOf(' - ');
   var ticker = dashIdx >= 0 ? clean.substring(0, dashIdx).trim() : clean.split(' ')[0];
   return ticker.toUpperCase();
@@ -24721,34 +24746,39 @@ function b3ppProcessText(text) {
   var errEl = document.getElementById('b3ppParseError');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
-  var firstLines = text.split(/\r?\n/).slice(0,5).join('\n');
-  var sep = firstLines.indexOf(';') >= 0 ? ';' : ',';
+  var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
 
-  var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  // Detect separator: prefer tab → semicolon → comma
+  var sample = lines.slice(0, 5).join('\n');
+  var sep = sample.indexOf('\t') >= 0 ? '\t' : sample.indexOf(';') >= 0 ? ';' : ',';
 
-  // Find header row
+  // Find header row: must contain 'produto' and ('pagamento' or 'tipo de evento' or 'movimenta')
   var headerIdx = -1;
   for (var i = 0; i < Math.min(lines.length, 30); i++) {
     var ln = lines[i].toLowerCase();
-    if ((ln.includes('movimenta') || ln.includes('tipo')) && (ln.includes('produto') || ln.includes('ativo'))) {
+    if (ln.includes('produto') && (ln.includes('pagamento') || ln.includes('tipo de evento') || ln.includes('movimenta') || ln.includes('data'))) {
       headerIdx = i; break;
     }
-    if (ln.includes('data') && ln.includes('produto')) { headerIdx = i; break; }
   }
   if (headerIdx < 0) {
-    if (errEl) { errEl.textContent = '❌ Formato não reconhecido. Verifique se é o extrato de Movimentações do Portal B3.'; errEl.style.display = ''; }
+    if (errEl) { errEl.textContent = '❌ Formato não reconhecido. Certifique-se de usar o relatório de Proventos do Portal B3 (colunas: Produto, Pagamento, Tipo de Evento, Instituição, Quantidade, Preço unitário, Valor líquido).'; errEl.style.display = ''; }
     return;
   }
 
   var headers = _b3SplitLine(lines[headerIdx], sep);
-  var iData   = _b3Col(headers, ['data', 'data da operação', 'data da operacao', 'data negocio']);
-  var iMov    = _b3Col(headers, ['tipo de movimentação', 'tipo de movimentacao', 'movimentação', 'movimentacao', 'tipo movimentação', 'tipo', 'descrição', 'descricao']);
-  var iProd   = _b3Col(headers, ['produto', 'ativo', 'papel', 'ticker', 'código', 'codigo']);
-  var iInst   = _b3Col(headers, ['instituição', 'instituicao', 'corretora', 'banco']);
-  var iQtd    = _b3Col(headers, ['quantidade', 'qtd', 'qt']);
-  var iPreco  = _b3Col(headers, ['preço unitário', 'preco unitario', 'preço unit', 'preco unit', 'valor unitário', 'valor unit', 'valor unitario']);
-  var iValOp  = _b3Col(headers, ['valor da operação', 'valor da operacao', 'valor operação', 'valor operacao', 'valor total', 'valor']);
-  var iES     = _b3Col(headers, ['entrada/saída', 'entrada/saida', 'credito/debito', 'tipo lancamento', 'lancamento']);
+
+  // Column indexes — handles both B3 Proventos format and Movimentações format
+  var iProd  = _b3Col(headers, ['produto', 'ativo', 'papel', 'ticker', 'código', 'codigo']);
+  var iData  = _b3Col(headers, ['pagamento', 'data de pagamento', 'data', 'data da operação', 'data da operacao', 'data negocio']);
+  var iTipo  = _b3Col(headers, ['tipo de evento', 'tipo de movimentação', 'tipo de movimentacao', 'movimentação', 'movimentacao', 'tipo', 'descrição', 'descricao', 'evento']);
+  var iInst  = _b3Col(headers, ['instituição', 'instituicao', 'corretora', 'banco']);
+  var iQtd   = _b3Col(headers, ['quantidade', 'qtd', 'qt']);
+  var iPreco = _b3Col(headers, ['preço unitário', 'preco unitario', 'preço unit', 'preco unit', 'valor unitário', 'valor unit', 'valor unitario']);
+  var iVal   = _b3Col(headers, ['valor líquido', 'valor liquido', 'valor da operação', 'valor da operacao', 'valor operação', 'valor operacao', 'valor total', 'valor bruto', 'valor']);
+  var iES    = _b3Col(headers, ['entrada/saída', 'entrada/saida', 'credito/debito', 'lancamento']);
+
+  // Detect file type: Proventos (has 'pagamento') vs Movimentações (has 'movimenta')
+  var isProventosFormat = _b3Col(headers, ['pagamento', 'tipo de evento']) >= 0;
 
   var parsed = [];
   for (var li = headerIdx + 1; li < lines.length; li++) {
@@ -24757,48 +24787,54 @@ function b3ppProcessText(text) {
     var cols = _b3SplitLine(line, sep);
     if (cols.length < 3) continue;
 
-    // Skip debit rows (sales, purchases) based on Entrada/Saída
-    if (iES >= 0) {
+    // Movimentações format: skip debit rows (Compra, Venda etc.)
+    if (!isProventosFormat && iES >= 0) {
       var es = (cols[iES] || '').toLowerCase();
       if (es.includes('débito') || es.includes('debito') || es === 'd') continue;
     }
 
-    var movRaw = iMov >= 0 ? (cols[iMov] || '') : '';
-    var tipoApp = _b3ppTipoProvento(movRaw);
-    if (!tipoApp) continue; // not a provento movement
+    var tipoRaw = iTipo >= 0 ? (cols[iTipo] || '').trim() : '';
+    var produto  = iProd >= 0 ? (cols[iProd] || '').trim() : '';
 
-    var dataRaw = iData >= 0 ? (cols[iData] || '') : '';
-    // Convert DD/MM/YYYY → YYYY-MM-DD
+    // For Movimentações format: skip non-provento rows
+    if (!isProventosFormat) {
+      var t = tipoRaw.toLowerCase();
+      var isProvento = t.includes('dividendo') || t.includes('rendimento') || t.includes('juros sobre capital')
+        || t === 'jcp' || t.includes('amortiza') || t.includes('leilão') || t.includes('leilao')
+        || t.includes('reembolso') || (t.includes('juros') && !t.includes('compra') && !t.includes('venda'));
+      if (!isProvento) continue;
+    }
+
+    var tipoApp = _b3ppMapTipoEvento(tipoRaw, produto);
+
+    // Parse date (DD/MM/YYYY → YYYY-MM-DD)
+    var dataRaw = iData >= 0 ? (cols[iData] || '').trim() : '';
     var dataISO = dataRaw;
-    var dmatch = dataRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (dmatch) dataISO = dmatch[3] + '-' + dmatch[2] + '-' + dmatch[1];
+    var dm = dataRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dm) dataISO = dm[3] + '-' + dm[2] + '-' + dm[1];
+    if (!dataISO || !dataISO.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
 
-    var produto = iProd >= 0 ? (cols[iProd] || '') : '';
-    var ticker  = _b3ppTicker(produto);
+    var ticker = _b3ppTicker(produto);
     if (!ticker) continue;
 
-    var inst    = iInst  >= 0 ? _b3CorretoraNome(cols[iInst]  || '') : '';
-    var qtdRaw  = iQtd   >= 0 ? (cols[iQtd]   || '') : '';
-    var precoRaw = iPreco >= 0 ? (cols[iPreco] || '') : '';
-    var valOpRaw = iValOp >= 0 ? (cols[iValOp] || '') : '';
+    var inst     = iInst  >= 0 ? _b3CorretoraNome(cols[iInst] || '') : '';
+    var qtd      = _b3ppParseNum(iQtd   >= 0 ? cols[iQtd]   : '');
+    var preco    = _b3ppParseNum(iPreco >= 0 ? cols[iPreco] : '');
+    var valTotal = _b3ppParseNum(iVal   >= 0 ? cols[iVal]   : '');
 
-    var qtd    = _b3ParseNum(qtdRaw);
-    var preco  = _b3ParseNum(precoRaw);
-    var valOp  = _b3ParseNum(valOpRaw);
-
-    // Derive valorUnit and qtd for the app
+    // Derive valorUnit + qty
     var valorUnit, finalQtd;
     if (qtd && qtd > 0 && preco && preco > 0) {
       valorUnit = preco;
       finalQtd  = qtd;
-    } else if (valOp && valOp > 0 && qtd && qtd > 0) {
-      valorUnit = valOp / qtd;
+    } else if (valTotal && valTotal > 0 && qtd && qtd > 0) {
+      valorUnit = valTotal / qtd;
       finalQtd  = qtd;
-    } else if (valOp && valOp > 0) {
-      valorUnit = valOp;
+    } else if (valTotal && valTotal > 0) {
+      valorUnit = valTotal;
       finalQtd  = 1;
     } else {
-      continue; // can't determine value
+      continue;
     }
 
     if (valorUnit <= 0) continue;
@@ -24806,7 +24842,7 @@ function b3ppProcessText(text) {
     parsed.push({
       data:      dataISO,
       tipo:      tipoApp,
-      tipoOrig:  movRaw,
+      tipoOrig:  tipoRaw,
       ativo:     ticker,
       produto:   produto,
       banco:     inst,
@@ -24817,7 +24853,7 @@ function b3ppProcessText(text) {
   }
 
   if (!parsed.length) {
-    if (errEl) { errEl.textContent = '❌ Nenhum provento encontrado. Certifique-se de usar o extrato de Movimentações (não de Posição) e que contém lançamentos de Dividendo, JCP ou Rendimento.'; errEl.style.display = ''; }
+    if (errEl) { errEl.textContent = '❌ Nenhum provento encontrado. Verifique se o arquivo é o relatório de Proventos do Portal B3 (Produto / Pagamento / Tipo de Evento / Quantidade / Preço unitário / Valor líquido).'; errEl.style.display = ''; }
     return;
   }
 
@@ -25149,10 +25185,10 @@ function b3ppDoImport() {
               <div style="font-weight:700;color:#10b981;margin-bottom:6px">📋 Como exportar proventos do Portal B3</div>
               <ol style="margin:0;padding-left:18px;line-height:1.9">
                 <li>Acesse <strong>investidor.b3.com.br</strong> → faça login com CPF</li>
-                <li>Vá em <strong>Extratos e Informativos → Movimentações</strong></li>
-                <li>Filtre o período desejado e clique em <strong>Exportar Excel</strong></li>
-                <li>O arquivo contém Dividendos, JCP, Rendimentos e Amortizações automaticamente</li>
-                <li>Carregue o arquivo abaixo — ou cole a tabela copiada do Excel</li>
+                <li>Vá em <strong>Extratos e Informativos → Proventos</strong></li>
+                <li>Selecione o período desejado e clique em <strong>Exportar</strong> (Excel ou CSV)</li>
+                <li>O arquivo tem colunas: <em>Produto · Pagamento · Tipo de Evento · Instituição · Quantidade · Preço unitário · Valor líquido</em></li>
+                <li>Carregue o arquivo abaixo — ou cole o conteúdo copiado diretamente do Excel</li>
               </ol>
             </div>
 
@@ -25169,7 +25205,7 @@ function b3ppDoImport() {
               <div style="display:flex;flex-direction:column;gap:6px">
                 <div style="font-size:11px;color:var(--text-muted)">Ou cole a tabela copiada do Excel:</div>
                 <textarea id="b3ppPasteArea"
-                  placeholder="Cole aqui o conteúdo do extrato de Movimentações..."
+                  placeholder="Cole aqui o conteúdo do relatório de Proventos B3 (Produto / Pagamento / Tipo de Evento / ...)..."
                   style="flex:1;resize:none;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:11px;color:var(--text-primary);font-family:monospace;min-height:100px"
                   oninput="if(this.value.trim()) b3ppProcessText(this.value)"></textarea>
               </div>
