@@ -8087,24 +8087,25 @@ function renderProventosKPIs() {
   const _provs = getProvsFiltrados();
   const mesAtivo = (typeof _provMes !== 'undefined' && _provMes) ? _provMes : null;
 
-  // Total recebido (respeitando filtros)
+  // Total recebido — respeita TODOS os filtros ativos (tipo, mês, banco)
   const total = _provs.reduce((s,p)=>s+p.valorUnit*p.qtd,0);
 
-  // Mês de referência — se filtro de mês ativo, usar aquele; senão mês atual
-  const hoje = new Date();
-  const anoRef = mesAtivo ? parseInt(mesAtivo.split('-')[0]) : hoje.getFullYear();
-  const mesRef = mesAtivo ? parseInt(mesAtivo.split('-')[1])-1 : hoje.getMonth();
-
-  const mesProvs = state.proventos.filter(p => {
-    const d = new Date(p.data+'T12:00:00');
-    return d.getMonth()===mesRef && d.getFullYear()===anoRef;
-  });
-  const mesBanco = (typeof _provBanco !== 'undefined' && _provBanco)
-    ? mesProvs.filter(p=>(p.banco||'')===_provBanco)
-    : mesProvs;
-  const totalMes = mesBanco.reduce((s,p)=>s+p.valorUnit*p.qtd,0);
+  // Dividendos + JCP — filtrado por mês e banco, mas sempre mostra Div+JCP independente do filtro de tipo
+  let divJcpBase = state.proventos.filter(p => ['Dividendo','JCP'].includes(p.tipo));
+  if (mesAtivo) {
+    divJcpBase = divJcpBase.filter(p => {
+      const d = new Date(p.data+'T12:00:00');
+      const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      return ym === mesAtivo;
+    });
+  }
+  if (typeof _provBanco !== 'undefined' && _provBanco) {
+    divJcpBase = divJcpBase.filter(p => (p.banco||'') === _provBanco);
+  }
+  const divJcpTotal = divJcpBase.reduce((s,p)=>s+p.valorUnit*p.qtd,0);
 
   // Yield on Cost — últimos 12 meses vs custo médio RV
+  const hoje = new Date();
   const cutoff12M = new Date(); cutoff12M.setFullYear(cutoff12M.getFullYear()-1);
   const prov12M   = state.proventos.filter(p => new Date(p.data+'T12:00:00') >= cutoff12M)
                                     .reduce((s,p) => s+p.valorUnit*p.qtd, 0);
@@ -8123,21 +8124,21 @@ function renderProventosKPIs() {
   const projecao = mediaM * 12;
 
   const nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesRef = mesAtivo ? parseInt(mesAtivo.split('-')[1])-1 : hoje.getMonth();
+  const anoRef = mesAtivo ? parseInt(mesAtivo.split('-')[0]) : hoje.getFullYear();
   const mesLabel = `${nomes[mesRef]}/${String(anoRef).slice(2)}`;
 
   // Atualizar DOM
   const el = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
-  el('proventosTotal',   'R$ '+fmt(mesAtivo ? total : state.proventos.reduce((s,p)=>s+p.valorUnit*p.qtd,0)));
-  el('proventosMesAtual','R$ '+fmt(totalMes));
-  el('yieldOnCost',      fmt(yoc)+'%');
-  el('projecaoAnual',    'R$ '+fmt(projecao));
+  el('proventosTotal',    'R$ '+fmt(total));
+  el('proventosMesAtual', 'R$ '+fmt(divJcpTotal));
+  el('yieldOnCost',       fmt(yoc)+'%');
+  el('projecaoAnual',     'R$ '+fmt(projecao));
 
-  // Atualizar sub-labels dos cards
-  const subMes = document.getElementById('provSubMes');
-  if (subMes) subMes.textContent = mesAtivo ? `${mesLabel} (filtrado)` : 'Dividendos + JCP + FII';
-
-  const subTotal = document.getElementById('provSubTotal');
-  if (subTotal) subTotal.textContent = mesAtivo ? `Em ${mesLabel}` : 'Acumulado histórico';
+  // Labels e sub-labels — atualiza conforme modo
+  el('provKpiTotalLabel', mesAtivo ? 'Total no Mês' : 'Total Recebido');
+  el('provKpiTotalSub',   mesAtivo ? `Em ${mesLabel}` : 'Acumulado histórico');
+  el('provKpiDivSub',     mesAtivo ? `Em ${mesLabel}` : 'Histórico');
 }
 function renderChartProventos(months) {
   months = months || 12;
