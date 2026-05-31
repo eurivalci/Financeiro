@@ -2924,6 +2924,26 @@ th.rv-sortable.desc .sort-arrow { opacity:1; }
   .dec-layout { flex-direction: column; }
   .dec-left { flex: none; }
 }
+/* ===== Dashboard — Radar de Vencimentos ===== */
+.venc-row { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:6px;padding-left:8px;padding-right:8px;margin:0 -8px; }
+.venc-row:last-child { border-bottom:none; }
+.venc-row:hover { background:var(--bg-secondary); }
+.venc-urgency { width:6px;height:36px;border-radius:3px;flex-shrink:0; }
+.venc-icon { font-size:18px;flex-shrink:0; }
+.venc-body { flex:1;min-width:0; }
+.venc-nome { font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.venc-sub  { font-size:10px;color:var(--text-muted);margin-top:1px; }
+.venc-dias { flex-shrink:0;text-align:right; }
+.venc-dias-num { font-size:13px;font-weight:800;font-family:var(--mono); }
+.venc-dias-label { font-size:9px;color:var(--text-muted); }
+.venc-val { flex-shrink:0;text-align:right;min-width:90px; }
+.venc-val-main { font-size:12px;font-weight:700;font-family:var(--mono); }
+.venc-val-sub  { font-size:9px;color:var(--text-muted); }
+.venc-sim-btn { flex-shrink:0;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid #8b5cf6;color:#8b5cf6;background:rgba(139,92,246,.08);cursor:pointer;white-space:nowrap;transition:all .15s; }
+.venc-sim-btn:hover { background:rgba(139,92,246,.18); }
+.venc-kpi-chip { flex:1;background:var(--bg-secondary);border-radius:8px;padding:8px 10px;text-align:center;border-left:3px solid transparent; }
+.venc-kpi-num { font-size:16px;font-weight:800;font-family:var(--mono); }
+.venc-kpi-label { font-size:9px;color:var(--text-muted);margin-top:2px;font-weight:600;text-transform:uppercase; }
 </style>
 <script>
 // PWA: registrar service worker inline via blob para funcionar sem servidor externo
@@ -3396,6 +3416,16 @@ self.addEventListener('fetch', e => {
             <tbody id="topAssetsBody"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Radar de Vencimentos -->
+      <div class="card" style="margin-top:16px" id="dashVencCard">
+        <div class="card-header">
+          <div class="card-title">📅 Radar de Vencimentos</div>
+          <button class="btn btn-secondary btn-sm" onclick="showPage('alertas')">Ver todos →</button>
+        </div>
+        <div id="dashVencKpi" style="display:flex;gap:8px;margin-bottom:14px"></div>
+        <div id="dashVencList"></div>
       </div>
 
     <!-- Multi-Período Benchmark -->
@@ -7781,6 +7811,61 @@ function updateDashboard() {
   updateProfileCard(patrimonio);
   renderTables(patrimonio);
   renderMultiperiodo();
+  renderDashVencimentos(patrimonio);
+}
+
+function renderDashVencimentos(patrimonio) {
+  var hoje = new Date();
+  var rfVenc = (state.ativos || []).filter(function(a) {
+    return a.categoria === 'rf' && a.dataVencimento;
+  }).map(function(a) {
+    var fim  = new Date(a.dataVencimento + 'T00:00:00');
+    var dias = Math.round((fim - hoje) / (1000*60*60*24));
+    var val  = calcRFAtualizado(a);
+    return { a: a, dias: dias, val: val, fim: fim };
+  }).filter(function(x) { return x.dias >= 0 && x.dias <= 180; })
+    .sort(function(a, b) { return a.dias - b.dias; });
+
+  // KPI chips
+  var urgente  = rfVenc.filter(function(x){ return x.dias <= 30; }).length;
+  var atencao  = rfVenc.filter(function(x){ return x.dias > 30 && x.dias <= 90; }).length;
+  var proximo  = rfVenc.filter(function(x){ return x.dias > 90; }).length;
+  var totalVal = rfVenc.reduce(function(s,x){ return s + x.val; }, 0);
+
+  var kpiEl = document.getElementById('dashVencKpi');
+  if (kpiEl) {
+    if (!rfVenc.length) { kpiEl.innerHTML = ''; }
+    else kpiEl.innerHTML =
+      '<div class="venc-kpi-chip" style="border-color:#ef4444"><div class="venc-kpi-num" style="color:#ef4444">' + urgente + '</div><div class="venc-kpi-label">Urgente ≤30d</div></div>' +
+      '<div class="venc-kpi-chip" style="border-color:#f59e0b"><div class="venc-kpi-num" style="color:#f59e0b">' + atencao + '</div><div class="venc-kpi-label">Atenção 31-90d</div></div>' +
+      '<div class="venc-kpi-chip" style="border-color:#3b82f6"><div class="venc-kpi-num" style="color:#3b82f6">' + proximo + '</div><div class="venc-kpi-label">Em Breve 91-180d</div></div>' +
+      '<div class="venc-kpi-chip" style="border-color:#10b981"><div class="venc-kpi-num" style="color:#10b981">R$' + fmt(totalVal/1000,0) + 'k</div><div class="venc-kpi-label">Total a Realocar</div></div>';
+  }
+
+  var listEl = document.getElementById('dashVencList');
+  if (!listEl) return;
+  if (!rfVenc.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:16px 0;color:var(--text-muted);font-size:12px">✅ Nenhum vencimento nos próximos 180 dias</div>';
+    return;
+  }
+
+  listEl.innerHTML = rfVenc.slice(0, 6).map(function(x) {
+    var cor   = x.dias <= 30 ? '#ef4444' : x.dias <= 90 ? '#f59e0b' : '#3b82f6';
+    var icon  = x.dias <= 30 ? '🚨' : x.dias <= 90 ? '⚠️' : '📅';
+    var pct   = patrimonio > 0 ? (x.val / patrimonio * 100) : 0;
+    var valFim = x.val;
+    return '<div class="venc-row" onclick="openDecisaoSimulator({valor:' + Math.round(valFim) + ',origem:\'' + (x.a.nome||'').replace(/'/g,'') + '\'})">'
+      + '<div class="venc-urgency" style="background:' + cor + '"></div>'
+      + '<div class="venc-icon">' + icon + '</div>'
+      + '<div class="venc-body">'
+        + '<div class="venc-nome">' + (x.a.nome || x.a.tipo) + '</div>'
+        + '<div class="venc-sub">' + (x.a.tipo || '') + ' · ' + (x.a.banco || '') + ' · ' + fmt(pct,1) + '% da carteira</div>'
+      + '</div>'
+      + '<div class="venc-dias"><div class="venc-dias-num" style="color:' + cor + '">' + x.dias + '</div><div class="venc-dias-label">dias</div></div>'
+      + '<div class="venc-val"><div class="venc-val-main">R$ ' + fmt(valFim) + '</div><div class="venc-val-sub">valor atual</div></div>'
+      + '<button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator({valor:' + Math.round(valFim) + ',origem:\'' + (x.a.nome||'').replace(/'/g,'') + '\'})">🎯 Simular</button>'
+      + '</div>';
+  }).join('');
 }
 
 function updateTime() {
@@ -8382,25 +8467,35 @@ function updateAlertas(patrimonio) {
     concContainer.innerHTML = '<div class="alert alert-info"><span class="alert-icon">✅</span><div class="alert-text">Nenhuma concentração excessiva detectada.</div></div>';
   }
 
-  // Vencimentos
+  // Vencimentos — redesign profissional
   const vencContainer = document.getElementById('alertasVencimento');
   vencContainer.innerHTML = '';
-  for (const a of state.ativos.filter(a => a.categoria === 'rf' && a.dataVencimento)) {
-    const venc = new Date(a.dataVencimento);
-    const dias = Math.round((venc - hoje) / (1000 * 60 * 60 * 24));
-    if (dias <= 180) {
-      const cls = dias <= 30 ? 'alert-danger' : dias <= 90 ? 'alert-warn' : 'alert-info';
-      const ico = dias <= 30 ? '🚨' : dias <= 90 ? '⚠️' : 'ℹ️';
-      vencContainer.innerHTML += `
-        <div class="alert ${cls}">
-          <span class="alert-icon">${ico}</span>
-          <div class="alert-text"><strong>${a.nome}</strong> vence em <strong>${dias} dias</strong> (${venc.toLocaleDateString('pt-BR')}). Valor: ${fmtR(calcRFAtualizado(a))}</div>
-        </div>
-      `;
-    }
-  }
-  if (!vencContainer.innerHTML) {
+  const rfVencAlert = state.ativos.filter(a => a.categoria === 'rf' && a.dataVencimento).map(a => {
+    const fim  = new Date(a.dataVencimento + 'T00:00:00');
+    const dias = Math.round((fim - hoje) / (1000*60*60*24));
+    const val  = calcRFAtualizado(a);
+    return { a, dias, val, fim };
+  }).filter(x => x.dias >= 0 && x.dias <= 180).sort((a,b) => a.dias - b.dias);
+
+  if (!rfVencAlert.length) {
     vencContainer.innerHTML = '<div class="alert alert-info"><span class="alert-icon">✅</span><div class="alert-text">Sem vencimentos nos próximos 180 dias.</div></div>';
+  } else {
+    vencContainer.innerHTML = rfVencAlert.map(x => {
+      const cor  = x.dias <= 30 ? '#ef4444' : x.dias <= 90 ? '#f59e0b' : '#3b82f6';
+      const icon = x.dias <= 30 ? '🚨' : x.dias <= 90 ? '⚠️' : '📅';
+      const pct  = patrimonio > 0 ? (x.val / patrimonio * 100) : 0;
+      return `<div class="venc-row" onclick="openDecisaoSimulator({valor:${Math.round(x.val)},origem:'${(x.a.nome||'').replace(/'/g,'')}'})" style="padding:12px 8px;margin:0 -8px">
+        <div class="venc-urgency" style="background:${cor}"></div>
+        <div style="font-size:20px">${icon}</div>
+        <div class="venc-body">
+          <div class="venc-nome">${x.a.nome || x.a.tipo}</div>
+          <div class="venc-sub">${x.a.tipo} · ${x.a.banco || ''} · ${x.a.indexador} ${fmt(x.a.taxa)}% · Vence: ${x.fim.toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div class="venc-dias"><div class="venc-dias-num" style="color:${cor}">${x.dias}</div><div class="venc-dias-label">dias</div></div>
+        <div class="venc-val"><div class="venc-val-main">R$ ${fmt(x.val)}</div><div class="venc-val-sub">${fmt(pct,1)}% carteira</div></div>
+        <button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator({valor:${Math.round(x.val)},origem:'${(x.a.nome||'').replace(/'/g,'')}'})">🎯 Simular decisão</button>
+      </div>`;
+    }).join('');
   }
 
   // Info
@@ -11271,6 +11366,26 @@ function openDecisaoSimulator(opts) {
 
   decRenderScenarios();
 
+  // Populate asset selector
+  var selEl = document.getElementById('decAtivoSelect');
+  if (selEl) {
+    var opts = '<option value="">— Selecione um ativo —</option>';
+    var cats = { rv: '📈 Renda Variável', rf: '🏛️ Renda Fixa', caixa: '💵 Caixa' };
+    ['rf','rv','caixa'].forEach(function(cat) {
+      var list = (state.ativos||[]).filter(function(a){ return a.categoria === cat; });
+      if (!list.length) return;
+      opts += '<optgroup label="' + cats[cat] + '">';
+      list.forEach(function(a) {
+        var label = cat==='rv' ? a.ticker+' ('+a.tipo+')' : cat==='rf' ? (a.nome||a.tipo) : (a.banco||'Caixa');
+        opts += '<option value="' + a.id + '">' + label + '</option>';
+      });
+      opts += '</optgroup>';
+    });
+    selEl.innerHTML = opts;
+  }
+  var infoEl = document.getElementById('decAtivoInfo');
+  if (infoEl) infoEl.style.display = 'none';
+
   // Resetar resultado
   var pl = document.getElementById('decPlaceholder');
   var rs = document.getElementById('decResults');
@@ -11287,6 +11402,37 @@ function decUsarOrigem(valor, nome) {
   document.querySelectorAll('.dec-origem-chip').forEach(function(c) {
     c.classList.toggle('active', c.title && c.textContent.includes(nome.substring(0,10)));
   });
+}
+
+function decAtivoSelecionado() {
+  var sel = document.getElementById('decAtivoSelect');
+  var infoEl = document.getElementById('decAtivoInfo');
+  if (!sel || !sel.value) { if (infoEl) infoEl.style.display = 'none'; return; }
+  var id = parseInt(sel.value);
+  var a  = (state.ativos||[]).find(function(x) { return x.id === id; });
+  if (!a) return;
+  var val, info;
+  if (a.categoria === 'rf') {
+    var valAtual = calcRFAtualizado(a);
+    var fim = a.dataVencimento ? new Date(a.dataVencimento + 'T00:00:00') : null;
+    var dias = fim ? Math.round((fim - new Date())/(1000*60*60*24)) : 0;
+    var mesesRestantes = dias > 0 ? dias / 30.44 : 0;
+    var valFim = fim && dias > 0 ? _rfCalcValAtMeses(a.indexador||'CDI', a.taxa||100, valAtual, mesesRestantes) : valAtual;
+    val  = Math.round(valFim);
+    info = dias > 0
+      ? '📅 Vence em ' + dias + ' dias · Valor atual: R$ ' + fmt(valAtual) + ' · Projetado no venc: R$ ' + fmt(valFim)
+      : '⚠️ Já vencido · Valor: R$ ' + fmt(valAtual);
+    if (dias > 0) decSetHorizonte(Math.max(1, Math.round(mesesRestantes)));
+  } else if (a.categoria === 'rv') {
+    val  = Math.round(a.qtd * getCotacao(a.ticker, a.precoMedio));
+    info = '📈 ' + a.ticker + ' · ' + a.qtd + ' un. × R$ ' + fmt(getCotacao(a.ticker, a.precoMedio)) + ' = R$ ' + fmt(val);
+  } else {
+    val  = Math.round(a.saldo || 0);
+    info = '💵 Saldo em ' + (a.banco || 'Caixa') + ': R$ ' + fmt(val);
+  }
+  var valEl = document.getElementById('decValor');
+  if (valEl) { valEl.value = val; decUpdateMinis(); }
+  if (infoEl) { infoEl.textContent = info; infoEl.style.display = 'block'; }
 }
 
 function decComparar() {
@@ -24634,6 +24780,13 @@ function b3DoImport() {
           <!-- Config geral -->
           <div class="dec-config">
             <div class="dec-config-title">⚙️ Configuração</div>
+            <div class="form-group" style="gap:4px;margin-bottom:10px">
+              <label style="font-size:11px">Usar ativo da carteira (opcional)</label>
+              <select id="decAtivoSelect" onchange="decAtivoSelecionado()" style="font-size:12px">
+                <option value="">— Digite ou selecione um ativo —</option>
+              </select>
+              <div id="decAtivoInfo" style="font-size:10px;color:#10b981;display:none"></div>
+            </div>
             <div class="form-group" style="gap:4px;margin-bottom:10px">
               <label style="font-size:11px">Valor a alocar (R$)</label>
               <input type="number" id="decValor" placeholder="Ex: 50000" step="100" oninput="decUpdateMinis()" style="font-size:14px;font-weight:700">
