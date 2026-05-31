@@ -3895,9 +3895,13 @@ self.addEventListener('fetch', e => {
           <div id="provRankingAtivo"></div>
         </div>
         <div class="card">
-          <div class="card-header">
+          <div class="card-header" style="flex-wrap:wrap;gap:6px">
             <div class="card-title">📊 Proventos por Mês</div>
-            <span style="font-size:9px;color:var(--text-muted)">👆 clique para detalhar</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button onclick="provNavAno(-1)" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px;cursor:pointer;color:var(--text-secondary);font-size:13px">◀</button>
+              <span id="provMensalAnoLabel" style="font-size:12px;font-weight:600;color:var(--text-primary);min-width:38px;text-align:center"></span>
+              <button onclick="provNavAno(1)" id="provMensalBtnNext" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px;cursor:pointer;color:var(--text-secondary);font-size:13px">▶</button>
+            </div>
           </div>
           <div style="height:240px"><canvas id="chartProvMensal"></canvas></div>
         </div>
@@ -7806,7 +7810,6 @@ function updateDashboard() {
 
   updateTime();
   updateTopAssets(patrimonio);
-  updateProventosPage(totalProventos, proventosMes, custo);
   updateAlocacao(patrimonio);
   updateAlertas(patrimonio);
   updateProfileCard(patrimonio);
@@ -8318,13 +8321,19 @@ function renderChartProventos(months) {
     }
   }
 
-  // ── Bar chart: Proventos por Mês (total, todos tipos) ─────────────
-  const labels12   = generateMonthLabels(12);
-  const hoje12     = new Date();
-  const monthDates12 = Array.from({length:12}, (_,i) => {
-    const d = new Date(hoje12); d.setMonth(d.getMonth()-(11-i)); return d;
-  });
-  // Para este chart: filtrar apenas por tipo e banco (não por mês)
+  // ── Bar chart: Proventos por Mês (Jan–Dez do ano selecionado) ──────
+  const nomesMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const anoMensal = _provMensalAno;
+  const monthDates12 = Array.from({length:12}, (_,i) => new Date(anoMensal, i, 1));
+  const labels12 = nomesMes;
+
+  // Atualizar label e botão "próximo" (desabilitar se já é o ano atual)
+  const anoLabel = document.getElementById('provMensalAnoLabel');
+  if (anoLabel) anoLabel.textContent = anoMensal;
+  const btnNext = document.getElementById('provMensalBtnNext');
+  if (btnNext) btnNext.disabled = anoMensal >= new Date().getFullYear();
+
+  // Para este chart: filtrar apenas por banco (não por mês/tipo)
   const provsParaMensal = (() => {
     let p = state.proventos;
     if (typeof _provBanco !== 'undefined' && _provBanco)
@@ -8358,6 +8367,7 @@ function renderChartProventos(months) {
           if (!els.length) return;
           const d = monthDates12[els[0].index];
           const mesKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          // Toggle filtro de mês
           if (_provMes === mesKey) {
             _provMes = '';
             document.getElementById('provMesSel').value = '';
@@ -8368,6 +8378,12 @@ function renderChartProventos(months) {
           renderChartProventos(months);
           renderProventosKPIs();
           renderProventosTable();
+          // Drill-down: mostrar proventos do mês clicado
+          const provsMes = provsParaMensal.filter(p => {
+            const pd = new Date(p.data+'T12:00:00');
+            return pd.getMonth()===d.getMonth() && pd.getFullYear()===d.getFullYear();
+          });
+          if (provsMes.length) showProvDrill(`📊 ${nomesMes[d.getMonth()]}/${d.getFullYear()}`, provsMes);
         },
         plugins:{
           legend:{display:false},
@@ -8380,6 +8396,11 @@ function renderChartProventos(months) {
       }
     });
   }
+}
+
+function provNavAno(delta) {
+  _provMensalAno += delta;
+  renderChartProventos(12);
 }
 
 function fmtMesProvMes(mesStr) {
@@ -9338,9 +9359,10 @@ function _buildDrawdown(vals) {
 }
 
 
-let _provFilter = 'all';
-let _provMes    = '';  // '' = todos os meses; 'YYYY-MM' = mês específico
-let _provBanco  = '';  // '' = todos os bancos
+let _provFilter    = 'all';
+let _provMes       = '';  // '' = todos os meses; 'YYYY-MM' = mês específico
+let _provBanco     = '';  // '' = todos os bancos
+let _provMensalAno = new Date().getFullYear();
 
 // ─── Proventos: navegação de mês ──────────────────────────────────
 function provNavMes(delta, mode) {
@@ -21881,6 +21903,7 @@ function toggleModule(id) {
     if (card) card.classList.add('enabled');
   }
   state.modulesConfig = { enabled };
+  applyModulesConfig();
 }
 
 function selectAllModules(enable) {
