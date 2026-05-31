@@ -2822,6 +2822,54 @@ th.rv-sortable.desc .sort-arrow { opacity:1; }
   .metas-kpi-strip { grid-template-columns:1fr 1fr; }
   .metas-grid { grid-template-columns:1fr; }
 }
+
+/* ===== RF Preview (modal inclusão lado a lado) ===== */
+.modal-rf-wide { width: 900px !important; }
+.rf-modal-layout { display: flex; gap: 0; }
+.rf-modal-form   { flex: 0 0 360px; padding-right: 20px; }
+.rf-modal-preview { flex: 1; min-width: 0; border-left: 1px solid var(--border); padding-left: 20px; display: flex; flex-direction: column; }
+.rf-prev-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+.rf-prev-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; gap: 8px; text-align: center; padding: 20px 0; }
+.rf-prev-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.rf-prev-kpi-card { background: var(--bg-secondary); border-radius: 8px; padding: 9px 11px; }
+.rf-prev-kpi-label { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.rf-prev-kpi-val { font-size: 14px; font-weight: 800; font-family: var(--mono); }
+.rf-prev-kpi-val.up { color: #10b981; }
+.rf-prev-kpi-val.warn { color: #f59e0b; }
+.rf-ir-strip { display: flex; gap: 5px; margin-top: 10px; }
+.rf-ir-seg { flex: 1; background: var(--bg-secondary); border-radius: 6px; padding: 5px 6px; text-align: center; border: 1.5px solid transparent; transition: border .2s; }
+.rf-ir-seg.ir-active { border-color: #3b82f6; }
+.rf-ir-seg .ir-dias  { font-size: 10px; font-weight: 700; color: var(--text-primary); }
+.rf-ir-seg .ir-aliq  { font-size: 9px; color: var(--text-muted); margin-top: 1px; }
+.rf-ir-seg .ir-val   { font-size: 9px; font-family: var(--mono); color: #10b981; margin-top: 1px; }
+@media(max-width:700px) {
+  .rf-modal-layout { flex-direction: column; }
+  .rf-modal-form   { flex: none; padding-right: 0; }
+  .rf-modal-preview { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 16px; margin-top: 16px; }
+  .modal-rf-wide { width: 95vw !important; }
+}
+
+/* ===== RF Detail Modal (listagem) ===== */
+.modal-rf-detail { width: 860px !important; }
+.rf-det-header-info { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.rf-det-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.rf-det-kpi-card { background: var(--bg-secondary); border-radius: 10px; padding: 12px 14px; }
+.rf-det-kpi-label { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.rf-det-kpi-val   { font-size: 18px; font-weight: 800; font-family: var(--mono); margin-top: 4px; }
+.rf-det-kpi-val.up   { color: #10b981; }
+.rf-det-kpi-val.warn { color: #f59e0b; }
+.rf-det-kpi-sub   { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.rf-det-ir { margin-top: 14px; }
+.rf-det-ir-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.rf-det-ir-strip { display: flex; gap: 8px; }
+.rf-det-ir-seg { flex: 1; background: var(--bg-secondary); border-radius: 8px; padding: 8px 10px; border: 1.5px solid transparent; }
+.rf-det-ir-seg.ir-active { border-color: #3b82f6; background: rgba(59,130,246,.08); }
+.rf-det-ir-seg .ir-range { font-size: 10px; font-weight: 700; }
+.rf-det-ir-seg .ir-pct   { font-size: 14px; font-weight: 800; font-family: var(--mono); margin-top: 2px; }
+.rf-det-ir-seg .ir-label { font-size: 9px; color: var(--text-muted); }
+.rf-det-progress { margin-top: 14px; }
+.rf-det-prog-track { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.rf-det-prog-fill  { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#3b82f6,#10b981); transition: width .5s; }
 </style>
 <script>
 // PWA: registrar service worker inline via blob para funcionar sem servidor externo
@@ -6937,65 +6985,83 @@ self.addEventListener('fetch', e => {
 
     <!-- RF Fields -->
     <div id="fieldsRF" style="display:none">
-      <div class="form-grid">
-        <div class="form-group full">
-          <label>Nome do Ativo *</label>
-          <input type="text" id="rfNome" placeholder="Ex: CDB Nubank 110% CDI">
-        </div>
-        <div class="form-group">
-          <label>Tipo *</label>
-          <select id="rfTipo">
-            <option value="CDB">CDB</option>
-            <option value="LCI">LCI</option>
-            <option value="LCA">LCA</option>
-            <option value="Tesouro Selic">Tesouro Selic</option>
-            <option value="Tesouro IPCA">Tesouro IPCA+</option>
-            <option value="Tesouro Prefixado">Tesouro Prefixado</option>
-            <option value="Fundo RF">Fundo RF</option>
-            <option value="Debenture">Debênture</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Indexador</label>
-          <select id="rfIndexador">
-            <option value="CDI">CDI</option>
-            <option value="IPCA">IPCA+</option>
-            <option value="Prefixado">Prefixado</option>
-            <option value="SELIC">SELIC</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Taxa Contratada (%)</label>
-          <input type="number" id="rfTaxa" placeholder="Ex: 110 (para 110% CDI)" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>Valor Aplicado (R$) *</label>
-          <input type="number" id="rfValorAplicado" placeholder="0,00" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>Data de Aplicação *</label>
-          <input type="date" id="rfDataAplicacao">
-        </div>
-        <div class="form-group">
-          <label>Data de Vencimento *</label>
-          <input type="date" id="rfDataVencimento">
-        </div>
-        <div class="form-group">
-          <label>Banco Emissor</label>
-          <div class="banco-wrap">
-            <input type="text" class="banco-input" id="rfBanco" placeholder="Ex: Banco Inter, Nubank…" autocomplete="off"
-              oninput="bancoCombInput(this,'rfBancoDropdown')" onfocus="bancoCombFocus(this,'rfBancoDropdown')" onblur="bancoCombBlur('rfBancoDropdown')" onkeydown="bancoCombKey(event,'rfBancoDropdown')">
-            <span class="banco-input-arrow">▾</span>
-            <div class="banco-dropdown" id="rfBancoDropdown"></div>
+      <div class="rf-modal-layout">
+        <!-- Formulário (esquerda) -->
+        <div class="rf-modal-form">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Nome do Ativo *</label>
+              <input type="text" id="rfNome" placeholder="Ex: CDB Nubank 110% CDI" oninput="updateRFPreview()">
+            </div>
+            <div class="form-group">
+              <label>Tipo *</label>
+              <select id="rfTipo" onchange="updateRFPreview()">
+                <option value="CDB">CDB</option>
+                <option value="LCI">LCI</option>
+                <option value="LCA">LCA</option>
+                <option value="Tesouro Selic">Tesouro Selic</option>
+                <option value="Tesouro IPCA">Tesouro IPCA+</option>
+                <option value="Tesouro Prefixado">Tesouro Prefixado</option>
+                <option value="Fundo RF">Fundo RF</option>
+                <option value="Debenture">Debênture</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Indexador</label>
+              <select id="rfIndexador" onchange="updateRFPreview()">
+                <option value="CDI">CDI</option>
+                <option value="IPCA">IPCA+</option>
+                <option value="Prefixado">Prefixado</option>
+                <option value="SELIC">SELIC</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Taxa Contratada (%)</label>
+              <input type="number" id="rfTaxa" placeholder="Ex: 110 (para 110% CDI)" step="0.01" oninput="updateRFPreview()">
+            </div>
+            <div class="form-group">
+              <label>Valor Aplicado (R$) *</label>
+              <input type="number" id="rfValorAplicado" placeholder="0,00" step="0.01" oninput="updateRFPreview()">
+            </div>
+            <div class="form-group">
+              <label>Data de Aplicação *</label>
+              <input type="date" id="rfDataAplicacao" onchange="updateRFPreview()">
+            </div>
+            <div class="form-group">
+              <label>Data de Vencimento *</label>
+              <input type="date" id="rfDataVencimento" onchange="updateRFPreview()">
+            </div>
+            <div class="form-group">
+              <label>Banco Emissor</label>
+              <div class="banco-wrap">
+                <input type="text" class="banco-input" id="rfBanco" placeholder="Ex: Banco Inter, Nubank…" autocomplete="off"
+                  oninput="bancoCombInput(this,'rfBancoDropdown')" onfocus="bancoCombFocus(this,'rfBancoDropdown')" onblur="bancoCombBlur('rfBancoDropdown')" onkeydown="bancoCombKey(event,'rfBancoDropdown')">
+                <span class="banco-input-arrow">▾</span>
+                <div class="banco-dropdown" id="rfBancoDropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Banco / Corretora onde comprou</label>
+              <div class="banco-wrap">
+                <input type="text" class="banco-input" id="rfCorretora" placeholder="Ex: XP, Rico, BTG…" autocomplete="off"
+                  oninput="bancoCombInput(this,'rfCorretoraDropdown')" onfocus="bancoCombFocus(this,'rfCorretoraDropdown')" onblur="bancoCombBlur('rfCorretoraDropdown')" onkeydown="bancoCombKey(event,'rfCorretoraDropdown')">
+                <span class="banco-input-arrow">▾</span>
+                <div class="banco-dropdown" id="rfCorretoraDropdown"></div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="form-group">
-          <label>Banco / Corretora onde comprou</label>
-          <div class="banco-wrap">
-            <input type="text" class="banco-input" id="rfCorretora" placeholder="Ex: XP, Rico, BTG…" autocomplete="off"
-              oninput="bancoCombInput(this,'rfCorretoraDropdown')" onfocus="bancoCombFocus(this,'rfCorretoraDropdown')" onblur="bancoCombBlur('rfCorretoraDropdown')" onkeydown="bancoCombKey(event,'rfCorretoraDropdown')">
-            <span class="banco-input-arrow">▾</span>
-            <div class="banco-dropdown" id="rfCorretoraDropdown"></div>
+        <!-- Prévia de Rentabilidade (direita) -->
+        <div class="rf-modal-preview" id="rfPreviewSide">
+          <div class="rf-prev-title">📈 Prévia de Rentabilidade</div>
+          <div class="rf-prev-empty" id="rfPrevEmpty">
+            <div style="font-size:28px">📊</div>
+            <div>Preencha taxa, valor e<br>datas para ver a projeção</div>
+          </div>
+          <div id="rfPrevContent" style="display:none">
+            <div class="rf-prev-kpi" id="rfPrevKpi"></div>
+            <div class="chart-container" style="height:160px"><canvas id="rfPrevChart"></canvas></div>
+            <div class="rf-ir-strip" id="rfPrevIR"></div>
           </div>
         </div>
       </div>
@@ -8601,6 +8667,7 @@ function renderTables(patrimonio) {
       </td>
       <td>
         <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-sm" onclick="openRFDetail(${a.id})" title="Ver evolução">📊</button>
           <button class="btn btn-secondary btn-sm" onclick="editAtivo(${a.id})">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteAtivo(${a.id})">🗑️</button>
         </div>
@@ -10262,6 +10329,10 @@ function showModalFields() {
   document.getElementById('fieldsRV').style.display = cat === 'rv' ? 'block' : 'none';
   document.getElementById('fieldsRF').style.display = cat === 'rf' ? 'block' : 'none';
   document.getElementById('fieldsCaixa').style.display = cat === 'caixa' ? 'block' : 'none';
+  // Alarga o modal quando RF para acomodar o preview
+  const modal = document.querySelector('#modalAtivo .modal');
+  if (modal) modal.classList.toggle('modal-rf-wide', cat === 'rf');
+  if (cat === 'rf') updateRFPreview();
 }
 
 function saveAtivo() {
@@ -10343,6 +10414,15 @@ function closeModal(id) {
   // Also clear module-specific editing IDs
   if (id === 'modalEmp')    editingEmpId    = null;
   if (id === 'modalCartao') editingCartaoId = null;
+  // Destroy RF chart instances to avoid "canvas already in use"
+  if (id === 'modalAtivo') {
+    if (_rfPrevChartInst) { try { _rfPrevChartInst.destroy(); } catch(e){} _rfPrevChartInst = null; }
+    const modal = document.querySelector('#modalAtivo .modal');
+    if (modal) modal.classList.remove('modal-rf-wide');
+  }
+  if (id === 'modalRFDetail') {
+    if (_rfDetChartInst) { try { _rfDetChartInst.destroy(); } catch(e){} _rfDetChartInst = null; }
+  }
 }
 
 let editingProventoId = null;
@@ -10598,6 +10678,310 @@ function bancoCombKey(e, dropId) {
   } else if (e.key === 'Escape') {
     drop.classList.remove('open');
   }
+}
+
+// =========================================================
+// RF PREVIEW & DETAIL
+// =========================================================
+var _rfPrevChartInst  = null;
+var _rfDetChartInst   = null;
+
+function _rfCalcValAtMeses(indexador, taxa, principal, meses) {
+  if (meses <= 0) return principal;
+  var fator;
+  if (indexador === 'CDI' || indexador === 'SELIC') {
+    fator = Math.pow(1 + CDI_MENSAL * (taxa / 100), meses);
+  } else if (indexador === 'IPCA') {
+    var tm = Math.pow(1 + (IPCA_ANUAL / 100 + taxa / 100), 1 / 12) - 1;
+    fator = Math.pow(1 + tm, meses);
+  } else { // Prefixado
+    var tm2 = Math.pow(1 + taxa / 100, 1 / 12) - 1;
+    fator = Math.pow(1 + tm2, meses);
+  }
+  return principal * fator;
+}
+
+function _rfIRAliquota(dias, isento) {
+  if (isento) return 0;
+  if (dias <= 180) return 22.5;
+  if (dias <= 360) return 20;
+  if (dias <= 720) return 17.5;
+  return 15;
+}
+
+function _rfBuildPoints(indexador, taxa, principal, inicio, fim) {
+  var pts = [], d = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+  while (d <= fim) {
+    var ms = Math.max(0, (d - inicio) / (1000 * 60 * 60 * 24 * 30.44));
+    pts.push({ date: new Date(d), val: _rfCalcValAtMeses(indexador, taxa, principal, ms) });
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+  // garante ponto exato no vencimento
+  var msFim = (fim - inicio) / (1000 * 60 * 60 * 24 * 30.44);
+  pts.push({ date: new Date(fim), val: _rfCalcValAtMeses(indexador, taxa, principal, msFim) });
+  return pts;
+}
+
+function updateRFPreview() {
+  var indexador = (document.getElementById('rfIndexador') || {}).value || 'CDI';
+  var taxa      = parseFloat((document.getElementById('rfTaxa') || {}).value) || 0;
+  var valor     = parseFloat((document.getElementById('rfValorAplicado') || {}).value) || 0;
+  var dataAplic = (document.getElementById('rfDataAplicacao') || {}).value;
+  var dataVenc  = (document.getElementById('rfDataVencimento') || {}).value;
+  var tipo      = (document.getElementById('rfTipo') || {}).value || 'CDB';
+
+  var empty   = document.getElementById('rfPrevEmpty');
+  var content = document.getElementById('rfPrevContent');
+  if (!taxa || !valor || !dataAplic || !dataVenc) {
+    if (empty)   empty.style.display   = 'flex';
+    if (content) content.style.display = 'none';
+    return;
+  }
+
+  var inicio = new Date(dataAplic + 'T00:00:00');
+  var fim    = new Date(dataVenc  + 'T00:00:00');
+  if (fim <= inicio) { if (empty) empty.style.display = 'flex'; if (content) content.style.display = 'none'; return; }
+
+  var hoje   = new Date();
+  var isento = ['LCI','LCA'].includes(tipo);
+  var mesesFim  = (fim - inicio) / (1000 * 60 * 60 * 24 * 30.44);
+  var diasFim   = (fim - inicio) / (1000 * 60 * 60 * 24);
+  var mesesHoje = Math.min(Math.max(0, (hoje - inicio) / (1000 * 60 * 60 * 24 * 30.44)), mesesFim);
+  var diasHoje  = Math.min(Math.max(0, (hoje - inicio) / (1000 * 60 * 60 * 24)), diasFim);
+
+  var valHoje   = _rfCalcValAtMeses(indexador, taxa, valor, mesesHoje);
+  var valFim    = _rfCalcValAtMeses(indexador, taxa, valor, mesesFim);
+  var rendBruto = valFim - valor;
+  var irAliq    = _rfIRAliquota(diasFim, isento);
+  var irValor   = rendBruto * irAliq / 100;
+  var rendLiq   = rendBruto - irValor;
+  var rendPct   = valor > 0 ? (rendBruto / valor) * 100 : 0;
+  var rendLiqPct= valor > 0 ? (rendLiq   / valor) * 100 : 0;
+
+  if (empty)   empty.style.display   = 'none';
+  if (content) content.style.display = 'block';
+
+  // KPI cards
+  var kpiEl = document.getElementById('rfPrevKpi');
+  if (kpiEl) kpiEl.innerHTML = [
+    { label: 'Valor no Vencimento', val: 'R$ ' + fmt(valFim),         cls: '' },
+    { label: 'Rend. Bruto',         val: '+R$ ' + fmt(rendBruto),      cls: 'up' },
+    { label: isento ? 'IR (isento)' : 'IR (' + fmt(irAliq,1) + '%)', val: isento ? 'R$ 0,00' : '-R$ ' + fmt(irValor), cls: 'warn' },
+    { label: 'Rend. Líquido',       val: '+' + fmt(rendLiqPct,2) + '%',cls: 'up' }
+  ].map(function(k) {
+    return '<div class="rf-prev-kpi-card"><div class="rf-prev-kpi-label">' + k.label + '</div>'
+         + '<div class="rf-prev-kpi-val ' + k.cls + '">' + k.val + '</div></div>';
+  }).join('');
+
+  // Line chart
+  var pts  = _rfBuildPoints(indexador, taxa, valor, inicio, fim);
+  var lbls = pts.map(function(p) { return p.date.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); });
+  var vals = pts.map(function(p) { return p.val; });
+
+  // Hoje marker index
+  var hojeIdx = pts.reduce(function(best, p, i) {
+    return Math.abs(p.date - hoje) < Math.abs(pts[best].date - hoje) ? i : best;
+  }, 0);
+
+  if (_rfPrevChartInst) { try { _rfPrevChartInst.destroy(); } catch(e){} _rfPrevChartInst = null; }
+  var canvas = document.getElementById('rfPrevChart');
+  if (canvas) {
+    _rfPrevChartInst = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: lbls,
+        datasets: [{
+          data: vals,
+          borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.12)',
+          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(ctx) { return ' R$ ' + fmt(ctx.raw); } } },
+          annotation: hoje >= inicio && hoje <= fim ? {
+            annotations: { hojeAnn: {
+              type: 'line', xMin: hojeIdx, xMax: hojeIdx,
+              borderColor: '#10b981', borderWidth: 1.5, borderDash: [4,3],
+              label: { content: 'Hoje', display: true, position: 'start', font: { size: 9 }, color: '#10b981', backgroundColor: 'transparent' }
+            }}
+          } : {}
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, maxTicksLimit: 6 }, grid: { display: false } },
+          y: { ticks: { font: { size: 9 }, callback: function(v) { return 'R$' + fmt(v,0); } }, grid: { color: 'rgba(255,255,255,.05)' } }
+        }
+      }
+    });
+  }
+
+  // IR strip
+  var irEl = document.getElementById('rfPrevIR');
+  if (irEl) {
+    var brackets = [
+      { label: 'até 180d', aliq: 22.5, maxDias: 180 },
+      { label: '181–360d', aliq: 20,   maxDias: 360 },
+      { label: '361–720d', aliq: 17.5, maxDias: 720 },
+      { label: 'acima 720d', aliq: 15, maxDias: Infinity }
+    ];
+    irEl.innerHTML = brackets.map(function(b) {
+      var active = irAliq === b.aliq && !isento;
+      var rendB  = _rfCalcValAtMeses(indexador, taxa, valor, mesesFim) - valor;
+      var irB    = isento ? 0 : rendB * b.aliq / 100;
+      return '<div class="rf-ir-seg' + (active ? ' ir-active' : '') + '">'
+           + '<div class="ir-dias">' + b.label + '</div>'
+           + '<div class="ir-aliq">' + (isento ? 'Isento' : b.aliq + '% IR') + '</div>'
+           + (active ? '<div class="ir-val">-R$ ' + fmt(irValor,0) + '</div>' : '')
+           + '</div>';
+    }).join('');
+  }
+}
+
+function openRFDetail(id) {
+  var a = state.ativos.find(function(x) { return x.id === id; });
+  if (!a || a.categoria !== 'rf') return;
+
+  var inicio  = new Date(a.dataAplicacao  + 'T00:00:00');
+  var fim     = new Date(a.dataVencimento + 'T00:00:00');
+  var hoje    = new Date();
+  var isento  = ['LCI','LCA'].includes(a.tipo);
+
+  var mesesFim  = (fim - inicio) / (1000 * 60 * 60 * 24 * 30.44);
+  var diasFim   = (fim - inicio) / (1000 * 60 * 60 * 24);
+  var mesesHoje = Math.min(Math.max(0, (hoje - inicio) / (1000 * 60 * 60 * 24 * 30.44)), mesesFim);
+  var diasHoje  = Math.min(Math.max(0, (hoje - inicio) / (1000 * 60 * 60 * 24)), diasFim);
+  var prazoPct  = diasFim > 0 ? Math.min(diasHoje / diasFim * 100, 100) : 100;
+
+  var valHoje   = _rfCalcValAtMeses(a.indexador, a.taxa, a.valorAplicado, mesesHoje);
+  var valFim    = _rfCalcValAtMeses(a.indexador, a.taxa, a.valorAplicado, mesesFim);
+  var rendBruto = valFim - a.valorAplicado;
+  var rendAtual = valHoje - a.valorAplicado;
+  var irAliq    = _rfIRAliquota(diasFim, isento);
+  var irAtual   = _rfIRAliquota(diasHoje, isento);
+  var irValor   = rendBruto * irAliq / 100;
+  var irAtualV  = rendAtual * irAtual / 100;
+  var rendLiq   = rendBruto - irValor;
+  var rendLiqAt = rendAtual - irAtualV;
+  var rendPct   = a.valorAplicado > 0 ? (rendBruto / a.valorAplicado) * 100 : 0;
+  var rendPctAt = a.valorAplicado > 0 ? (rendLiqAt / a.valorAplicado) * 100 : 0;
+
+  // Header
+  var titleEl = document.getElementById('rfDetTitle');
+  var subEl   = document.getElementById('rfDetSubtitle');
+  if (titleEl) titleEl.textContent = a.nome || a.tipo;
+  if (subEl)   subEl.innerHTML = '<span style="font-weight:700">' + a.tipo + '</span>'
+    + ' · ' + a.indexador + ' ' + fmt(a.taxa) + '%'
+    + ' · ' + a.banco
+    + (a.dataVencimento ? ' · Venc: ' + fim.toLocaleDateString('pt-BR') : '');
+
+  // KPI cards
+  var kpiEl = document.getElementById('rfDetKpi');
+  if (kpiEl) kpiEl.innerHTML = [
+    { label: 'Valor Aplicado',     val: 'R$ ' + fmt(a.valorAplicado), sub: inicio.toLocaleDateString('pt-BR'), cls: '' },
+    { label: 'Valor Atual',        val: 'R$ ' + fmt(valHoje),          sub: (rendAtual>=0?'+':'') + 'R$ ' + fmt(rendAtual) + ' hoje', cls: 'up' },
+    { label: 'No Vencimento (bruto)', val: 'R$ ' + fmt(valFim),        sub: '+' + fmt(rendPct,2) + '% bruto', cls: 'up' },
+    { label: isento?'IR (Isento)':'IR no Venc (' + irAliq + '%)',
+                                    val: isento ? 'R$ 0,00' : '-R$ ' + fmt(irValor), sub: isento ? 'LCI/LCA isentos' : 'Tabela regressiva', cls: isento?'':'warn' },
+    { label: 'Rend. Líquido (Venc)', val: '+R$ ' + fmt(rendLiq),       sub: '+' + fmt(a.valorAplicado>0?rendLiq/a.valorAplicado*100:0,2) + '% líquido', cls: 'up' },
+    { label: 'Rend. Líquido Atual', val: '+' + fmt(rendPctAt,2) + '%', sub: '+R$ ' + fmt(rendLiqAt) + ' líquido', cls: 'up' }
+  ].map(function(k) {
+    return '<div class="rf-det-kpi-card"><div class="rf-det-kpi-label">' + k.label + '</div>'
+         + '<div class="rf-det-kpi-val ' + k.cls + '">' + k.val + '</div>'
+         + '<div class="rf-det-kpi-sub">' + k.sub + '</div></div>';
+  }).join('');
+
+  // Chart
+  var pts  = _rfBuildPoints(a.indexador, a.taxa, a.valorAplicado, inicio, fim);
+  var lbls = pts.map(function(p) { return p.date.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); });
+  var vals = pts.map(function(p) { return p.val; });
+  var hojeIdx = pts.reduce(function(best,p,i) {
+    return Math.abs(p.date-hoje) < Math.abs(pts[best].date-hoje) ? i : best;
+  }, 0);
+
+  if (_rfDetChartInst) { try { _rfDetChartInst.destroy(); } catch(e){} _rfDetChartInst = null; }
+  var canvas = document.getElementById('rfDetChart');
+  if (canvas) {
+    _rfDetChartInst = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: lbls,
+        datasets: [
+          { label: 'Valor Bruto', data: vals,
+            borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)',
+            borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.3 },
+          { label: 'Valor Líquido (IR)',
+            data: vals.map(function(v, i) {
+              var ms  = Math.max(0,(pts[i].date - inicio)/(1000*60*60*24*30.44));
+              var dias= Math.max(0,(pts[i].date - inicio)/(1000*60*60*24));
+              var rend = v - a.valorAplicado;
+              var aliq = _rfIRAliquota(dias, isento);
+              return a.valorAplicado + Math.max(0, rend - rend * aliq / 100);
+            }),
+            borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0,
+            borderDash: [5,3], fill: false, tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 20 } },
+          tooltip: { callbacks: { label: function(ctx) { return ' R$ ' + fmt(ctx.raw); } } },
+          annotation: hoje >= inicio && hoje <= fim ? {
+            annotations: { hojeAnn: {
+              type: 'line', xMin: hojeIdx, xMax: hojeIdx,
+              borderColor: '#f59e0b', borderWidth: 2, borderDash: [5,3],
+              label: { content: 'Hoje', display: true, position: 'start',
+                font: { size: 10, weight: 'bold' }, color: '#f59e0b', backgroundColor: 'transparent' }
+            }}
+          } : {}
+        },
+        scales: {
+          x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 }, grid: { display: false } },
+          y: { ticks: { font: { size: 10 }, callback: function(v) { return 'R$' + fmt(v,0); } }, grid: { color: 'rgba(255,255,255,.05)' } }
+        }
+      }
+    });
+  }
+
+  // Progresso prazo
+  var fillEl  = document.getElementById('rfDetProgFill');
+  var pctEl   = document.getElementById('rfDetProgPct');
+  var startEl = document.getElementById('rfDetProgStart');
+  var endEl   = document.getElementById('rfDetProgEnd');
+  if (fillEl)  fillEl.style.width = Math.min(prazoPct,100) + '%';
+  if (pctEl)   pctEl.textContent  = fmt(prazoPct,1) + '% do prazo';
+  if (startEl) startEl.textContent = inicio.toLocaleDateString('pt-BR');
+  if (endEl)   endEl.textContent   = fim.toLocaleDateString('pt-BR');
+
+  // IR table
+  var irEl = document.getElementById('rfDetIR');
+  if (irEl) {
+    var brackets = [
+      { range: 'Até 180 dias',    aliq: 22.5 },
+      { range: '181 a 360 dias',  aliq: 20   },
+      { range: '361 a 720 dias',  aliq: 17.5 },
+      { range: 'Acima de 720d',   aliq: 15   }
+    ];
+    irEl.innerHTML = '<div class="rf-det-ir-title">Tabela Regressiva de IR ' + (isento ? '— <span style="color:#10b981">Isento (LCI/LCA)</span>' : '') + '</div>'
+      + '<div class="rf-det-ir-strip">'
+      + brackets.map(function(b) {
+          var active  = !isento && irAliq === b.aliq;
+          var irPct   = isento ? 0 : b.aliq;
+          var irV     = rendBruto * irPct / 100;
+          var liq     = rendBruto - irV;
+          return '<div class="rf-det-ir-seg' + (active ? ' ir-active' : '') + '">'
+               + '<div class="ir-range">' + b.range + '</div>'
+               + '<div class="ir-pct" style="color:' + (isento?'#10b981':'#f59e0b') + '">' + (isento ? 'Isento' : b.aliq + '%') + '</div>'
+               + '<div class="ir-label">IR: ' + (isento?'R$ 0,00':'-R$ '+fmt(irV,0)) + '</div>'
+               + '<div class="ir-label">Líq: +R$ ' + fmt(isento?rendBruto:liq,0) + '</div>'
+               + '</div>';
+        }).join('')
+      + '</div>';
+  }
+
+  document.getElementById('modalRFDetail').classList.add('open');
 }
 
 // =========================================================
@@ -23836,6 +24220,32 @@ function b3DoImport() {
       </div>
       <div style="font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:auto" id="tvLastUpdate"></div>
     </div>
+
+  <!-- Modal Detalhe RF -->
+  <div class="modal-overlay" id="modalRFDetail">
+    <div class="modal modal-rf-detail">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="rfDetTitle">Evolução do Investimento</div>
+          <div class="rf-det-header-info" id="rfDetSubtitle"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modalRFDetail')">✕</button>
+      </div>
+      <div class="rf-det-kpi" id="rfDetKpi"></div>
+      <div class="chart-container" style="height:260px;margin-bottom:14px"><canvas id="rfDetChart"></canvas></div>
+      <div class="rf-det-progress">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted)">
+          <span id="rfDetProgLabel">Prazo decorrido</span>
+          <span id="rfDetProgPct"></span>
+        </div>
+        <div class="rf-det-prog-track"><div class="rf-det-prog-fill" id="rfDetProgFill" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px">
+          <span id="rfDetProgStart"></span><span id="rfDetProgEnd"></span>
+        </div>
+      </div>
+      <div class="rf-det-ir" id="rfDetIR"></div>
+    </div>
+  </div>
 
   <!-- Drill-down overlay — nível global para funcionar em qualquer página -->
   <div class="dist-drill-overlay" id="distDrillOverlay" onclick="closeDistDrill(event)">
