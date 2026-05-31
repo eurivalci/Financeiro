@@ -2870,6 +2870,60 @@ th.rv-sortable.desc .sort-arrow { opacity:1; }
 .rf-det-progress { margin-top: 14px; }
 .rf-det-prog-track { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; margin-top: 6px; }
 .rf-det-prog-fill  { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#3b82f6,#10b981); transition: width .5s; }
+
+/* ===== Simulador de Decisão ===== */
+.modal-decisao { width: 980px !important; max-height: 92vh !important; }
+.dec-layout { display: flex; gap: 24px; }
+.dec-left  { flex: 0 0 340px; }
+.dec-right { flex: 1; min-width: 0; }
+.dec-config { background: var(--bg-secondary); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.dec-config-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+.dec-horizonte { display: flex; gap: 6px; margin-top: 8px; }
+.dec-hz-btn { flex: 1; padding: 6px 4px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg-input); color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: all .15s; }
+.dec-hz-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.dec-scenarios { display: flex; flex-direction: column; gap: 8px; }
+.dec-scenario-card { border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; transition: border-color .2s; }
+.dec-scenario-card.active-card { border-color: var(--card-accent, #3b82f6); }
+.dec-sc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.dec-sc-icon { font-size: 16px; }
+.dec-sc-name { font-size: 13px; font-weight: 700; flex: 1; }
+.dec-sc-toggle { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; line-height: 1; }
+.dec-sc-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dec-sc-inputs .form-group { gap: 3px; }
+.dec-sc-inputs label { font-size: 10px; }
+.dec-sc-inputs input, .dec-sc-inputs select { font-size: 12px; padding: 5px 8px; }
+.dec-sc-mini { margin-top: 8px; padding: 7px 10px; background: var(--bg-secondary); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.dec-sc-mini-val { font-size: 14px; font-weight: 800; font-family: var(--mono); }
+.dec-sc-mini-pct { font-size: 11px; font-family: var(--mono); color: var(--text-muted); }
+.dec-btn-comparar { width: 100%; padding: 12px; background: linear-gradient(135deg,#3b82f6,#8b5cf6); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: opacity .15s; }
+.dec-btn-comparar:hover { opacity: .9; }
+.dec-results { display: none; }
+.dec-chart-wrap { background: var(--bg-secondary); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.dec-ranking { display: flex; flex-direction: column; gap: 8px; }
+.dec-rank-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; gap: 12px; align-items: center; transition: border-color .2s; }
+.dec-rank-card.winner { border-color: #10b981; background: rgba(16,185,129,.05); }
+.dec-rank-card.top2   { border-color: #3b82f6; background: rgba(59,130,246,.04); }
+.dec-rank-pos { font-size: 20px; font-weight: 900; font-family: var(--mono); color: var(--text-muted); width: 28px; flex-shrink: 0; }
+.dec-rank-pos.gold { color: #f59e0b; }
+.dec-rank-body { flex: 1; min-width: 0; }
+.dec-rank-name { font-size: 13px; font-weight: 700; }
+.dec-rank-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.dec-rank-val { text-align: right; flex-shrink: 0; }
+.dec-rank-val-main { font-size: 15px; font-weight: 800; font-family: var(--mono); color: #10b981; }
+.dec-rank-val-pct  { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+.dec-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+.dec-badge-best   { background: rgba(16,185,129,.15); color: #10b981; }
+.dec-badge-liq    { background: rgba(6,182,212,.15);  color: #06b6d4; }
+.dec-badge-safe   { background: rgba(139,92,246,.15); color: #8b5cf6; }
+.dec-badge-isento { background: rgba(16,185,129,.15); color: #10b981; }
+.dec-origem-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dec-origem-chip { font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1.5px solid var(--border); cursor: pointer; background: var(--bg-input); color: var(--text-muted); transition: all .15s; white-space: nowrap; }
+.dec-origem-chip.active { border-color: #3b82f6; background: rgba(59,130,246,.1); color: #3b82f6; }
+@media(max-width: 760px) {
+  .modal-decisao { width: 96vw !important; }
+  .dec-layout { flex-direction: column; }
+  .dec-left { flex: none; }
+}
 </style>
 <script>
 // PWA: registrar service worker inline via blob para funcionar sem servidor externo
@@ -3874,6 +3928,7 @@ self.addEventListener('fetch', e => {
         <div class="section-title" style="margin-bottom:0">📋 Gerenciar Ativos</div>
         <div style="display:flex;gap:7px">
           <button class="btn btn-primary" onclick="openModal('add')">➕ Incluir Ativo</button>
+          <button class="btn btn-secondary btn-sm" onclick="openDecisaoSimulator()" style="border-color:#8b5cf6;color:#8b5cf6" title="Simular alocação de capital entre cenários">🎯 Simular Decisão</button>
           <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Excel</button>
           <button class="btn btn-secondary btn-sm" onclick="exportPDF()">📄 PDF</button>
           <button class="btn btn-secondary btn-sm" onclick="openB3Import()" style="border-color:#10b981;color:#10b981" title="Importar posição ou movimentação CSV do Portal B3">🇧🇷 Importar B3</button>
@@ -3987,8 +4042,7 @@ self.addEventListener('fetch', e => {
                 <tr>
                   <th>Nome</th>
                   <th>Tipo</th>
-                  <th>Indexador</th>
-                  <th>Taxa</th>
+                  <th>Índice / Taxa</th>
                   <th>Vencimento</th>
                   <th>Aplicado</th>
                   <th>Atualizado</th>
@@ -8652,24 +8706,27 @@ function renderTables(patrimonio) {
     const gl = ((atualizado - a.valorAplicado) / a.valorAplicado) * 100;
     const tr = document.createElement('tr');
     tr.dataset.id = a.id;
+    const taxaLabel = a.indexador === 'Prefixado'
+      ? `${fmt(a.taxa)}% a.a.`
+      : `${a.indexador} ${fmt(a.taxa)}%`;
+    const glColor = gl >= 0 ? 'up' : 'down';
     tr.innerHTML = `
-      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${a.nome}"><strong>${a.nome}</strong></td>
-      <td><span class="tag tag-${a.tipo.includes('Tesouro') ? 'tesouro' : 'cdb'}">${a.tipo}</span></td>
-      <td class="mono">${a.indexador}</td>
-      <td class="mono">${fmt(a.taxa)}%</td>
-      <td class="mono">${new Date(a.dataVencimento).toLocaleDateString('pt-BR')}</td>
-      <td class="mono">R$ ${fmt(a.valorAplicado)}</td>
-      <td class="mono up">R$ ${fmt(atualizado)}</td>
-      <td class="mono up">${fmtP(gl)}</td>
-      <td style="font-size:12px">
-        <div style="font-weight:600">${a.banco}</div>
-        ${a.corretora ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px">via ${a.corretora}</div>` : ''}
+      <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${a.nome}"><strong style="font-size:12px">${a.nome}</strong></td>
+      <td style="white-space:nowrap"><span class="tag tag-${a.tipo.includes('Tesouro') ? 'tesouro' : 'cdb'}" style="font-size:10px">${a.tipo}</span></td>
+      <td class="mono" style="font-size:11px;white-space:nowrap">${taxaLabel}</td>
+      <td class="mono" style="font-size:11px;white-space:nowrap">${a.dataVencimento ? new Date(a.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+      <td class="mono" style="font-size:11px">R$ ${fmt(a.valorAplicado)}</td>
+      <td class="mono ${glColor}" style="font-size:11px">R$ ${fmt(atualizado)}</td>
+      <td class="mono ${glColor}" style="font-size:11px">${fmtP(gl)}</td>
+      <td style="font-size:11px;white-space:nowrap">
+        <div style="font-weight:600">${a.banco || '—'}</div>
+        ${a.corretora ? `<div style="font-size:10px;color:var(--text-muted)">via ${a.corretora}</div>` : ''}
       </td>
-      <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-secondary btn-sm" onclick="openRFDetail(${a.id})" title="Ver evolução">📊</button>
-          <button class="btn btn-secondary btn-sm" onclick="editAtivo(${a.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteAtivo(${a.id})">🗑️</button>
+      <td style="white-space:nowrap">
+        <div style="display:flex;gap:3px">
+          <button class="btn btn-secondary btn-sm" onclick="openRFDetail(${a.id})" title="Ver evolução rentabilidade" style="font-size:13px;padding:3px 6px">📊</button>
+          <button class="btn btn-secondary btn-sm" onclick="editAtivo(${a.id})" title="Editar" style="padding:3px 6px">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAtivo(${a.id})" title="Excluir" style="padding:3px 6px">🗑️</button>
         </div>
       </td>
     `;
@@ -10423,6 +10480,9 @@ function closeModal(id) {
   if (id === 'modalRFDetail') {
     if (_rfDetChartInst) { try { _rfDetChartInst.destroy(); } catch(e){} _rfDetChartInst = null; }
   }
+  if (id === 'modalDecisao') {
+    if (_decChartInst) { try { _decChartInst.destroy(); } catch(e){} _decChartInst = null; }
+  }
 }
 
 let editingProventoId = null;
@@ -10981,7 +11041,343 @@ function openRFDetail(id) {
       + '</div>';
   }
 
+  // Ligar botão "Simular" com valor no vencimento
+  var simBtn = document.getElementById('rfDetSimularBtn');
+  if (simBtn) {
+    simBtn.onclick = function() {
+      closeModal('modalRFDetail');
+      openDecisaoSimulator({ valor: Math.round(valFim), origem: a.nome });
+    };
+  }
+
   document.getElementById('modalRFDetail').classList.add('open');
+}
+
+// =========================================================
+// SIMULADOR DE DECISÃO
+// =========================================================
+var _decHorizonte  = 12;
+var _decChartInst  = null;
+var _decScenarios  = [];
+
+var DEC_TIPOS = {
+  CDB:    { icon:'🏦', label:'CDB',           cor:'#3b82f6', risco:'Baixo',  liq:'No vencimento' },
+  LCI:    { icon:'🌱', label:'LCI / LCA',     cor:'#10b981', risco:'Baixo',  liq:'No vencimento', isento:true },
+  SELIC:  { icon:'🏛️', label:'Tesouro Selic', cor:'#06b6d4', risco:'Baixo',  liq:'Diária' },
+  IPCA:   { icon:'📊', label:'Tesouro IPCA+', cor:'#8b5cf6', risco:'Baixo',  liq:'No vencimento' },
+  PRE:    { icon:'🔐', label:'Prefixado',     cor:'#f97316', risco:'Baixo',  liq:'No vencimento' },
+  RV:     { icon:'📈', label:'Renda Variável',cor:'#f59e0b', risco:'Alto',   liq:'Diária', isRV:true },
+  DIVIDA: { icon:'🔒', label:'Pagar Dívida',  cor:'#8b5cf6', risco:'Zero',   liq:'Imediata', isDivida:true },
+  CAIXA:  { icon:'💵', label:'Caixa / Poup.', cor:'#64748b', risco:'Baixo',  liq:'Imediata' },
+};
+
+function decCalcScenario(tipo, params, valor, meses) {
+  if (!valor || !meses) return null;
+  var meta = DEC_TIPOS[tipo];
+  var dias  = meses * 30.44;
+  var bruto, ir, liquido, rendAnual;
+
+  if (meta.isDivida) {
+    // economia de juros = rendimento garantido
+    var taxaMes = (params.taxaMes || 0) / 100;
+    var saldo   = params.saldo || valor;
+    var economia = 0;
+    var s = Math.min(valor, saldo);
+    for (var m = 0; m < meses; m++) { economia += s * taxaMes; s = Math.max(0, s - (valor / meses)); }
+    bruto   = valor + economia;
+    ir      = 0;
+    liquido = bruto;
+  } else if (meta.isRV) {
+    var retAnual = (params.retAnual || 10) / 100;
+    var fatAnual = Math.pow(1 + retAnual, meses / 12);
+    bruto   = valor * fatAnual;
+    ir      = Math.max(0, bruto - valor) * 0.15; // 15% estimado (longo prazo)
+    liquido = bruto - ir;
+  } else if (tipo === 'CAIXA') {
+    // poupança ≈ 70% CDI se SELIC > 8.5%, senão 0.5%/mês + TR
+    var poupMes = CDI_MENSAL * 0.70;
+    bruto   = valor * Math.pow(1 + poupMes, meses);
+    ir      = 0; // poupança é isenta
+    liquido = bruto;
+  } else {
+    // RF genérica
+    var tm;
+    if (tipo === 'SELIC')   tm = CDI_MENSAL;
+    else if (tipo === 'IPCA') tm = Math.pow(1 + (IPCA_ANUAL/100 + (params.spread||0)/100), 1/12) - 1;
+    else if (tipo === 'PRE')  tm = Math.pow(1 + (params.taxa||10)/100, 1/12) - 1;
+    else                      tm = CDI_MENSAL * ((params.taxa||100)/100); // CDB/LCI % do CDI
+    bruto = valor * Math.pow(1 + tm, meses);
+    var rend = bruto - valor;
+    if (meta.isento) { ir = 0; }
+    else {
+      var aliq = dias <= 180 ? 22.5 : dias <= 360 ? 20 : dias <= 720 ? 17.5 : 15;
+      ir = rend * aliq / 100;
+    }
+    liquido = bruto - ir;
+  }
+
+  var rendLiqPct = valor > 0 ? (liquido - valor) / valor * 100 : 0;
+  rendAnual = valor > 0 ? (Math.pow(liquido/valor, 12/meses) - 1) * 100 : 0;
+  return { bruto, ir, liquido, rendLiqPct, rendAnual, risco: meta.risco, liq: meta.liq, isento: !!meta.isento, isDivida: !!meta.isDivida };
+}
+
+function decBuildScenarioCard(sc) {
+  var meta = DEC_TIPOS[sc.tipo];
+  var inputs = '';
+  if (sc.tipo === 'CDB') {
+    inputs = `<div class="form-group"><label>% do CDI</label><input type="number" id="decP_${sc.id}_taxa" value="${sc.params.taxa||110}" step="1" min="50" max="140" oninput="decUpdateMinis()"></div>
+              <div class="form-group"><label>Prazo (meses)</label><input type="number" id="decP_${sc.id}_prazo" value="${sc.params.prazo||_decHorizonte}" min="1" oninput="decUpdateMinis()"></div>`;
+  } else if (sc.tipo === 'LCI') {
+    inputs = `<div class="form-group"><label>% do CDI</label><input type="number" id="decP_${sc.id}_taxa" value="${sc.params.taxa||92}" step="1" min="50" max="120" oninput="decUpdateMinis()"></div>
+              <div class="form-group"><label>Prazo (meses)</label><input type="number" id="decP_${sc.id}_prazo" value="${sc.params.prazo||_decHorizonte}" min="1" oninput="decUpdateMinis()"></div>`;
+  } else if (sc.tipo === 'SELIC') {
+    inputs = `<div class="form-group full"><label>Taxa atual SELIC: ${fmt(CDI_ANUAL,2)}% a.a. — Tesouro Selic acompanha automaticamente</label></div>`;
+  } else if (sc.tipo === 'IPCA') {
+    inputs = `<div class="form-group"><label>Spread IPCA+ (%)</label><input type="number" id="decP_${sc.id}_spread" value="${sc.params.spread||6}" step="0.1" min="0" oninput="decUpdateMinis()"></div>
+              <div class="form-group"><label>IPCA atual: ${fmt(IPCA_ANUAL,2)}% a.a.</label></div>`;
+  } else if (sc.tipo === 'PRE') {
+    inputs = `<div class="form-group"><label>Taxa prefixada (% a.a.)</label><input type="number" id="decP_${sc.id}_taxa" value="${sc.params.taxa||13}" step="0.1" min="1" oninput="decUpdateMinis()"></div>`;
+  } else if (sc.tipo === 'RV') {
+    inputs = `<div class="form-group"><label>Retorno estimado (% a.a.)</label><input type="number" id="decP_${sc.id}_retAnual" value="${sc.params.retAnual||15}" step="1" min="-50" max="200" oninput="decUpdateMinis()"></div>
+              <div class="form-group"><label>Ativo / Índice</label><input type="text" id="decP_${sc.id}_ativo" value="${sc.params.ativo||'IBOV'}" style="text-transform:uppercase" oninput="decUpdateMinis()"></div>`;
+  } else if (sc.tipo === 'DIVIDA') {
+    var empOptions = (state.emprestimos||[]).map(function(e) {
+      return `<option value="${e.taxaMes}|${e.nome}" ${sc.params.nome===e.nome?'selected':''}>${e.nome} (${fmt(e.taxaMes,2)}% a.m.)</option>`;
+    }).join('');
+    inputs = empOptions
+      ? `<div class="form-group full"><label>Dívida a quitar</label><select id="decP_${sc.id}_emp" onchange="decEmpChange(${sc.id})">${empOptions}</select></div>`
+      : `<div class="form-group"><label>Taxa mensal (%)</label><input type="number" id="decP_${sc.id}_taxaMes" value="${sc.params.taxaMes||3.5}" step="0.1" min="0.1" oninput="decUpdateMinis()"></div>`;
+  } else if (sc.tipo === 'CAIXA') {
+    inputs = `<div class="form-group full"><label>Poupança ≈ 70% CDI, isenta de IR (referência)</label></div>`;
+  }
+
+  return `<div class="dec-scenario-card active-card" id="decSC_${sc.id}" style="border-color:${meta.cor}20">
+    <div class="dec-sc-header">
+      <span class="dec-sc-icon">${meta.icon}</span>
+      <span class="dec-sc-name" style="color:${meta.cor}">${meta.label}</span>
+      <button class="dec-sc-toggle" onclick="decRemoveScenario(${sc.id})" title="Remover">✕</button>
+    </div>
+    <div class="dec-sc-inputs">${inputs}</div>
+    <div class="dec-sc-mini" id="decMini_${sc.id}">
+      <span style="color:var(--text-muted);font-size:11px">Preencha o valor acima</span>
+    </div>
+  </div>`;
+}
+
+function decReadParams(sc) {
+  var p = Object.assign({}, sc.params);
+  function v(id) { var el = document.getElementById(id); return el ? parseFloat(el.value)||0 : 0; }
+  function s(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+  if (sc.tipo === 'CDB' || sc.tipo === 'LCI') { p.taxa = v(`decP_${sc.id}_taxa`); p.prazo = v(`decP_${sc.id}_prazo`)||_decHorizonte; }
+  else if (sc.tipo === 'IPCA') p.spread  = v(`decP_${sc.id}_spread`);
+  else if (sc.tipo === 'PRE')  p.taxa    = v(`decP_${sc.id}_taxa`);
+  else if (sc.tipo === 'RV')   { p.retAnual = v(`decP_${sc.id}_retAnual`); p.ativo = s(`decP_${sc.id}_ativo`); }
+  else if (sc.tipo === 'DIVIDA' && document.getElementById(`decP_${sc.id}_emp`)) {
+    var sel = document.getElementById(`decP_${sc.id}_emp`).value.split('|');
+    p.taxaMes = parseFloat(sel[0])||0; p.nome = sel[1]||'';
+  } else if (sc.tipo === 'DIVIDA') { p.taxaMes = v(`decP_${sc.id}_taxaMes`); }
+  return p;
+}
+
+function decUpdateMinis() {
+  var valor = parseFloat(document.getElementById('decValor').value) || 0;
+  _decScenarios.forEach(function(sc) {
+    var p   = decReadParams(sc);
+    var res = decCalcScenario(sc.tipo, p, valor, _decHorizonte);
+    var el  = document.getElementById('decMini_' + sc.id);
+    if (!el) return;
+    if (!res || !valor) { el.innerHTML = '<span style="color:var(--text-muted);font-size:11px">Preencha o valor acima</span>'; return; }
+    var cor = res.liquido >= valor ? '#10b981' : '#ef4444';
+    el.innerHTML = '<span class="dec-sc-mini-val" style="color:' + cor + '">R$ ' + fmt(res.liquido) + '</span>'
+                 + '<span class="dec-sc-mini-pct">+' + fmt(res.rendLiqPct,2) + '% líq.</span>';
+  });
+}
+
+function decSetHorizonte(meses) {
+  _decHorizonte = meses;
+  document.querySelectorAll('.dec-hz-btn').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.dataset.meses) === meses);
+  });
+  decUpdateMinis();
+}
+
+function decRemoveScenario(id) {
+  _decScenarios = _decScenarios.filter(function(s) { return s.id !== id; });
+  decRenderScenarios();
+}
+
+function decRenderScenarios() {
+  var container = document.getElementById('decScenariosContainer');
+  if (container) container.innerHTML = _decScenarios.map(decBuildScenarioCard).join('');
+  decUpdateMinis();
+}
+
+function decEmpChange(scId) {
+  decUpdateMinis();
+}
+
+function openDecisaoSimulator(opts) {
+  opts = opts || {};
+  var valor  = opts.valor  || '';
+  var origem = opts.origem || '';
+
+  // Montar cenários padrão
+  var nextId = 1;
+  _decScenarios = [
+    { id: nextId++, tipo: 'CDB',   params: { taxa: 110, prazo: 12 } },
+    { id: nextId++, tipo: 'LCI',   params: { taxa: 92,  prazo: 12 } },
+    { id: nextId++, tipo: 'SELIC', params: {} },
+    { id: nextId++, tipo: 'RV',    params: { retAnual: 15, ativo: 'IBOV' } },
+  ];
+  // Se há dívidas, adicionar cenário dívida
+  if ((state.emprestimos||[]).length) {
+    var emp = state.emprestimos[0];
+    _decScenarios.push({ id: nextId++, tipo: 'DIVIDA', params: { taxaMes: emp.taxaMes, nome: emp.nome, saldo: valor } });
+  }
+
+  _decHorizonte = 12;
+  document.querySelectorAll('.dec-hz-btn').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.dataset.meses) === 12);
+  });
+
+  if (valor) {
+    var valEl = document.getElementById('decValor');
+    if (valEl) valEl.value = valor;
+  }
+
+  // Sugestões de origem — ativos RF prestes a vencer (≤90 dias)
+  var hoje = new Date();
+  var prox = (state.ativos||[]).filter(function(a) {
+    if (a.categoria !== 'rf' || !a.dataVencimento) return false;
+    var fim  = new Date(a.dataVencimento + 'T00:00:00');
+    var dias = (fim - hoje) / (1000*60*60*24);
+    return dias >= 0 && dias <= 120;
+  });
+  var wrapEl = document.getElementById('decOrigemWrap');
+  var chipsEl = document.getElementById('decOrigemChips');
+  if (prox.length && chipsEl) {
+    wrapEl.style.display = 'block';
+    chipsEl.innerHTML = prox.map(function(a) {
+      var fim  = new Date(a.dataVencimento + 'T00:00:00');
+      var dias = Math.round((fim - hoje)/(1000*60*60*24));
+      var val  = calcRFAtualizado(a);
+      return '<div class="dec-origem-chip" onclick="decUsarOrigem(' + fmt(val,0).replace(/\./g,'').replace(',','.') + ',\'' + a.nome.replace(/'/g,'') + '\')" title="Vence em ' + dias + ' dias">'
+           + a.nome.substring(0,22) + (a.nome.length>22?'…':'') + ' · ' + dias + 'd'
+           + '</div>';
+    }).join('');
+  } else if (wrapEl) {
+    wrapEl.style.display = 'none';
+  }
+
+  decRenderScenarios();
+
+  // Resetar resultado
+  var pl = document.getElementById('decPlaceholder');
+  var rs = document.getElementById('decResults');
+  if (pl) pl.style.display = 'flex';
+  if (rs) rs.style.display = 'none';
+  if (_decChartInst) { try{_decChartInst.destroy();}catch(e){} _decChartInst = null; }
+
+  document.getElementById('modalDecisao').classList.add('open');
+}
+
+function decUsarOrigem(valor, nome) {
+  var el = document.getElementById('decValor');
+  if (el) { el.value = valor; decUpdateMinis(); }
+  document.querySelectorAll('.dec-origem-chip').forEach(function(c) {
+    c.classList.toggle('active', c.title && c.textContent.includes(nome.substring(0,10)));
+  });
+}
+
+function decComparar() {
+  var valor = parseFloat(document.getElementById('decValor').value) || 0;
+  if (!valor) { alert('Informe o valor a alocar!'); return; }
+
+  // Calcular resultados
+  var results = _decScenarios.map(function(sc) {
+    var p   = decReadParams(sc);
+    var res = decCalcScenario(sc.tipo, p, valor, _decHorizonte);
+    var meta = DEC_TIPOS[sc.tipo];
+    var pAtivo = sc.tipo === 'RV' ? (p.ativo || 'RV') : '';
+    return Object.assign({}, res, {
+      id: sc.id, tipo: sc.tipo, label: meta.label + (pAtivo?' ('+pAtivo+')':''),
+      cor: meta.cor, icon: meta.icon, isento: meta.isento, params: p
+    });
+  }).filter(function(r) { return r && r.liquido; });
+
+  if (!results.length) return;
+
+  // Ordenar por líquido
+  results.sort(function(a, b) { return b.liquido - a.liquido; });
+
+  // Mostrar resultados
+  var pl = document.getElementById('decPlaceholder');
+  var rs = document.getElementById('decResults');
+  if (pl) pl.style.display = 'none';
+  if (rs) rs.style.display = 'block';
+
+  // Gráfico
+  if (_decChartInst) { try{_decChartInst.destroy();}catch(e){} _decChartInst = null; }
+  var canvas = document.getElementById('decChart');
+  if (canvas) {
+    _decChartInst = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: results.map(function(r){ return r.icon + ' ' + r.label; }),
+        datasets: [
+          { label: 'Valor Líquido (R$)', data: results.map(function(r){ return r.liquido; }),
+            backgroundColor: results.map(function(r){ return r.cor + 'CC'; }),
+            borderColor:     results.map(function(r){ return r.cor; }),
+            borderWidth: 2, borderRadius: 6 },
+          { label: 'Investido (R$)', data: results.map(function(){ return valor; }),
+            backgroundColor: 'rgba(255,255,255,0.06)', borderColor:'rgba(255,255,255,0.2)',
+            borderWidth: 1, borderRadius: 6 }
+        ]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'top', labels:{ font:{size:11}, boxWidth:16 } },
+          tooltip: { callbacks: { label: function(ctx) {
+            return ' R$ ' + fmt(ctx.raw) + (ctx.datasetIndex===0 ? ' (+' + fmt((ctx.raw-valor)/valor*100,2)+'% líq.)' : '');
+          }}}
+        },
+        scales: {
+          x: { ticks:{ font:{size:10}, callback: function(v){ return 'R$'+fmt(v,0); } }, grid:{ color:'rgba(255,255,255,.05)' } },
+          y: { ticks:{ font:{size:11} }, grid:{ display:false } }
+        }
+      }
+    });
+  }
+
+  // Ranking
+  var maxLiq = results[0].liquido;
+  var rankEl = document.getElementById('decRanking');
+  if (rankEl) rankEl.innerHTML = results.map(function(r, i) {
+    var badges = '';
+    if (i === 0) badges += '<span class="dec-badge dec-badge-best">⭐ Melhor retorno</span>';
+    if (r.liq === 'Diária' || r.liq === 'Imediata') badges += '<span class="dec-badge dec-badge-liq">💧 Liquidez ' + r.liq.toLowerCase() + '</span>';
+    if (r.isDivida) badges += '<span class="dec-badge dec-badge-safe">🔒 Retorno garantido</span>';
+    if (r.isento)   badges += '<span class="dec-badge dec-badge-isento">✅ Isento IR</span>';
+
+    var irInfo = r.ir > 0 ? ' | IR: -R$ ' + fmt(r.ir,0) : (r.isento ? ' | IR isento' : '');
+    var detalhe = r.risco === 'Zero'
+      ? 'Economia de juros garantida · Risco: zero'
+      : 'Risco: ' + r.risco + ' · Liquidez: ' + r.liq + irInfo;
+
+    return '<div class="dec-rank-card ' + (i===0?'winner':i===1?'top2':'') + '">'
+      + '<div class="dec-rank-pos ' + (i===0?'gold':'') + '">' + (i+1) + '</div>'
+      + '<div class="dec-rank-body">'
+        + '<div class="dec-rank-name">' + r.icon + ' ' + r.label + badges + '</div>'
+        + '<div class="dec-rank-detail">' + detalhe + '</div>'
+      + '</div>'
+      + '<div class="dec-rank-val">'
+        + '<div class="dec-rank-val-main">R$ ' + fmt(r.liquido) + '</div>'
+        + '<div class="dec-rank-val-pct">+' + fmt(r.rendLiqPct,2) + '% líq.</div>'
+        + '<div class="dec-rank-val-pct">' + fmt(r.rendAnual,2) + '% a.a.</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 // =========================================================
@@ -24221,6 +24617,70 @@ function b3DoImport() {
       <div style="font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:auto" id="tvLastUpdate"></div>
     </div>
 
+  <!-- Modal Simulador de Decisão -->
+  <div class="modal-overlay" id="modalDecisao">
+    <div class="modal modal-decisao">
+      <div class="modal-header" style="margin-bottom:16px">
+        <div>
+          <div class="modal-title">🎯 Simulador de Decisão</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Compare cenários com seus dados reais e descubra a melhor alocação</div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modalDecisao')">✕</button>
+      </div>
+
+      <div class="dec-layout">
+        <!-- ESQUERDA: configuração + cenários -->
+        <div class="dec-left">
+          <!-- Config geral -->
+          <div class="dec-config">
+            <div class="dec-config-title">⚙️ Configuração</div>
+            <div class="form-group" style="gap:4px;margin-bottom:10px">
+              <label style="font-size:11px">Valor a alocar (R$)</label>
+              <input type="number" id="decValor" placeholder="Ex: 50000" step="100" oninput="decUpdateMinis()" style="font-size:14px;font-weight:700">
+            </div>
+            <div class="form-group" style="gap:4px">
+              <label style="font-size:11px">Horizonte de comparação</label>
+              <div class="dec-horizonte">
+                <div class="dec-hz-btn active" data-meses="12"  onclick="decSetHorizonte(12)">12 meses</div>
+                <div class="dec-hz-btn"        data-meses="24"  onclick="decSetHorizonte(24)">24 meses</div>
+                <div class="dec-hz-btn"        data-meses="36"  onclick="decSetHorizonte(36)">36 meses</div>
+                <div class="dec-hz-btn"        data-meses="60"  onclick="decSetHorizonte(60)">5 anos</div>
+              </div>
+            </div>
+            <div id="decOrigemWrap" style="display:none">
+              <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;margin-bottom:4px">💡 Origens sugeridas</div>
+              <div class="dec-origem-row" id="decOrigemChips"></div>
+            </div>
+          </div>
+
+          <!-- Cenários -->
+          <div class="dec-config-title" style="margin-bottom:8px">📋 Cenários</div>
+          <div class="dec-scenarios" id="decScenariosContainer"></div>
+          <button class="dec-btn-comparar" onclick="decComparar()" style="margin-top:12px">
+            ⚡ Comparar Cenários
+          </button>
+        </div>
+
+        <!-- DIREITA: resultado -->
+        <div class="dec-right">
+          <div id="decPlaceholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);text-align:center;gap:12px;padding:40px 0">
+            <div style="font-size:48px">🎯</div>
+            <div style="font-size:14px;font-weight:600">Configure e clique em<br><strong style="color:var(--text-primary)">Comparar Cenários</strong></div>
+            <div style="font-size:12px;max-width:220px">O sistema usa suas taxas reais de CDI e IPCA para projetar cada alternativa</div>
+          </div>
+          <div class="dec-results" id="decResults">
+            <div class="dec-chart-wrap">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Retorno líquido projetado</div>
+              <div style="height:220px"><canvas id="decChart"></canvas></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🏆 Ranking</div>
+            <div class="dec-ranking" id="decRanking"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Detalhe RF -->
   <div class="modal-overlay" id="modalRFDetail">
     <div class="modal modal-rf-detail">
@@ -24244,6 +24704,11 @@ function b3DoImport() {
         </div>
       </div>
       <div class="rf-det-ir" id="rfDetIR"></div>
+      <div style="margin-top:16px;text-align:center">
+        <button class="btn btn-secondary" id="rfDetSimularBtn" onclick="" style="border-color:#8b5cf6;color:#8b5cf6;font-size:12px">
+          🎯 Simular o que fazer com este valor no vencimento
+        </button>
+      </div>
     </div>
   </div>
 
