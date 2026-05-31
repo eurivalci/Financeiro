@@ -3943,7 +3943,7 @@ self.addEventListener('fetch', e => {
             <thead>
               <tr>
                 <th>Data</th><th>Ativo</th><th>Banco</th><th>Tipo</th>
-                <th>Valor Unit.</th><th>Qtd</th><th>Total</th><th>Ações</th>
+                <th>Valor Unit.</th><th>Qtd</th><th>Total</th><th style="font-size:10px">Origem</th><th>Ações</th>
               </tr>
             </thead>
             <tbody id="proventosBody"></tbody>
@@ -7963,6 +7963,9 @@ function renderProventosTable() {
     const cor = tipoColors[p.tipo] || '#8ba3cc';
     const icon = tipoIcons[p.tipo] || '💵';
     const tr = document.createElement('tr');
+    const fonteBadge = p.fonte === 'b3'
+      ? '<span title="Importado da B3" style="font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3);white-space:nowrap">🇧🇷 B3</span>'
+      : '<span title="Registrado manualmente" style="font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(99,102,241,.1);color:#6366f1;border:1px solid rgba(99,102,241,.25);white-space:nowrap">✏️ Manual</span>';
     tr.innerHTML = `
       <td class="mono" style="font-size:12px">${new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
       <td><strong>${p.ativo}</strong></td>
@@ -7971,6 +7974,7 @@ function renderProventosTable() {
       <td class="mono">R$ ${fmt(p.valorUnit, 4)}</td>
       <td class="mono">${p.qtd}</td>
       <td class="mono up" style="font-weight:700">R$ ${fmt(valorTotal)}</td>
+      <td style="text-align:center">${fonteBadge}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-secondary btn-sm" onclick="editProvento(${p.id})" title="Editar">✏️</button>
@@ -10653,10 +10657,12 @@ function saveProvento() {
   const vUnit = parseFloat((document.getElementById('pValorUnit')||{value:0}).value);
   const qtd   = parseFloat((document.getElementById('pQtd')||{value:0}).value);
   if (!data||!ativo||!vUnit||!qtd) { alert('Preencha todos os campos obrigatórios!'); return; }
-  const obj = { data, tipo, ativo, banco, valorUnit:vUnit, qtd };
+  const obj = { data, tipo, ativo, banco, valorUnit:vUnit, qtd, fonte: 'manual' };
   if (editingProventoId) {
+    const existing = state.proventos.find(p=>p.id===editingProventoId);
+    const keepFonte = existing ? (existing.fonte || 'manual') : 'manual';
     const idx = state.proventos.findIndex(p=>p.id===editingProventoId);
-    if (idx>=0) state.proventos[idx] = { id:editingProventoId, ...obj };
+    if (idx>=0) state.proventos[idx] = { id:editingProventoId, ...obj, fonte: keepFonte };
   } else {
     state.proventos.push({ id:Date.now(), ...obj });
   }
@@ -16359,22 +16365,102 @@ function _agendaProject(ativos) {
   return events.sort((a, b) => a.exDate - b.exDate);
 }
 
+// Project future dividends from user's own provento history (works offline, always)
+function _agendaProjectFromHistory() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const horizon = new Date(today);
+  horizon.setMonth(horizon.getMonth() + _agendaMeses);
+
+  const rvByTicker = {};
+  (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker)
+    .forEach(a => { rvByTicker[a.ticker] = a; });
+
+  // Group historical proventos by ticker
+  const byTicker = {};
+  (state.proventos || []).forEach(function(p) {
+    var ticker = (p.ativo || '').toUpperCase();
+    if (!rvByTicker[ticker]) return; // only RV in portfolio
+    if (!byTicker[ticker]) byTicker[ticker] = [];
+    byTicker[ticker].push(p);
+  });
+
+  const events = [];
+
+  Object.entries(byTicker).forEach(function([ticker, provs]) {
+    var ativo = rvByTicker[ticker];
+    // Sort descending by date
+    var sorted = provs.slice().sort(function(a, b) {
+      return new Date(b.data + 'T12:00:00') - new Date(a.data + 'T12:00:00');
+    });
+    // Only use past payments
+    var past = sorted.filter(function(p) { return new Date(p.data + 'T12:00:00') < today; });
+    if (past.length < 2) return;
+
+    var sample = past.slice(0, 6);
+    // Average days between payments
+    var sumInterval = 0;
+    for (var i = 0; i < sample.length - 1; i++) {
+      var d1 = new Date(sample[i].data + 'T12:00:00');
+      var d2 = new Date(sample[i+1].data + 'T12:00:00');
+      sumInterval += (d1 - d2) / 86400000;
+    }
+    var avgInterval = Math.round(sumInterval / (sample.length - 1));
+    if (avgInterval < 5 || avgInterval > 400) return;
+
+    // Average valorUnit from last 3 payments
+    var avgRate = sample.slice(0,3).reduce(function(s,p){ return s + p.valorUnit; }, 0) / Math.min(3, sample.length);
+
+    // Project forward from most recent past payment
+    var nextDate = new Date(past[0].data + 'T12:00:00');
+    nextDate.setDate(nextDate.getDate() + avgInterval);
+
+    while (nextDate <= horizon) {
+      if (nextDate >= today) {
+        events.push({
+          ticker: ticker,
+          tipo:   ativo.tipo,
+          qtd:    ativo.qtd,
+          exDate: new Date(nextDate),
+          payDate: null,
+          rate:   avgRate,
+          total:  avgRate * ativo.qtd,
+          label:  'Proj. histórico',
+          projected: true,
+          source: 'history'
+        });
+      }
+      nextDate = new Date(nextDate);
+      nextDate.setDate(nextDate.getDate() + avgInterval);
+    }
+  });
+
+  return events;
+}
+
 function _agendaRenderFromCache() {
   const el = document.getElementById('agendaContent');
   if (!el) return;
 
   const rvAtivos = (state.ativos || []).filter(a => a.categoria === 'rv' && a.ticker);
-  const events   = _agendaProject(rvAtivos);
 
-  // KPIs
+  // Merge API projections + historical projections (history fills gaps where API has no data)
+  function _mergedEvents() {
+    const apiEvts  = _agendaProject(rvAtivos);
+    const histEvts = _agendaProjectFromHistory();
+    const merged   = [...apiEvts];
+    histEvts.forEach(function(he) {
+      var clash = merged.find(function(e){ return e.ticker === he.ticker && Math.abs(e.exDate - he.exDate) < 15*86400000; });
+      if (!clash) merged.push(he);
+    });
+    return merged.sort(function(a,b){ return a.exDate - b.exDate; });
+  }
+  const events = _mergedEvents();
+
+  // KPIs — always compute at 12M horizon regardless of current filter
   const today = new Date(); today.setHours(0,0,0,0);
-  const all12M = _agendaProject((() => { const tmp = _agendaMeses; _agendaMeses = 12; return rvAtivos; })());
-  _agendaMeses = _agendaMeses; // restore (project already used global)
-
-  // Reproject at 12M for KPIs regardless of filter
   const savedMes = _agendaMeses;
   _agendaMeses = 12;
-  const events12M = _agendaProject(rvAtivos);
+  const events12M = _mergedEvents();
   _agendaMeses = savedMes;
 
   const total12M = events12M.reduce((s,e) => s+e.total, 0);
@@ -16397,10 +16483,19 @@ function _agendaRenderFromCache() {
     : 'Nenhum identificado';
 
   if (!events.length) {
+    const hasRV = (state.ativos||[]).some(a => a.categoria === 'rv');
+    const hasHist = (state.proventos||[]).some(p => {
+      const rv = (state.ativos||[]).find(a => a.ticker === p.ativo && a.categoria === 'rv');
+      return !!rv;
+    });
     el.innerHTML = `<div class="empty-state" style="padding:40px">
       <div class="empty-icon">📅</div>
-      Nenhum provento identificado nos próximos ${_agendaMeses} meses.<br>
-      <span style="font-size:12px;color:var(--text-muted)">Verifique se os ativos possuem histórico de dividendos no Brapi.</span>
+      Nenhuma projeção identificada para os próximos ${_agendaMeses} meses.<br>
+      <span style="font-size:12px;color:var(--text-muted)">
+        ${!hasRV ? 'Adicione ativos de Renda Variável para ativar a agenda.' :
+          !hasHist ? 'Registre ao menos 2 proventos por ativo em Proventos para gerar projeções históricas. A busca pela API B3/Brapi também será usada automaticamente.' :
+          'Adicione mais histórico de proventos (mínimo 2 por ativo) ou aguarde o carregamento da API.'}
+      </span>
     </div>`;
     return;
   }
@@ -16447,7 +16542,7 @@ function _agendaRenderFromCache() {
           <div class="agenda-amount-unit">R$ ${fmt(e.rate,4)}/unit × ${fmt(e.qtd,0)}</div>
           <div class="agenda-amount-total">${fmtR(e.total)}</div>
         </div>
-        <span class="${e.projected ? 'agenda-badge-proj' : 'agenda-badge-conf'}">${e.projected ? '⚡ Proj.' : '✅ Conf.'}</span>
+        <span class="${e.projected ? 'agenda-badge-proj' : 'agenda-badge-conf'}">${!e.projected ? '✅ Conf.' : e.source === 'history' ? '📊 Histórico' : '⚡ API'}</span>
       </div>`;
     }).join('');
 
@@ -24771,12 +24866,20 @@ function b3ppDoImport() {
 
   toImport.forEach(function(p) {
     if (mode === 'skip_dup') {
-      // Check if exact same date+ativo+tipo+total already exists
+      // Check if exact same date+ativo+tipo+total already exists (any source)
       var dup = state.proventos.some(function(x){
         return x.data === p.data && x.ativo === p.ativo && x.tipo === p.tipo
           && Math.abs((x.valorUnit * x.qtd) - p.total) < 0.01;
       });
       if (dup) { ignorados++; return; }
+    }
+    // Always skip if identical B3 record already exists (prevents double-import)
+    if (mode !== 'add_all') {
+      var b3Dup = state.proventos.some(function(x){
+        return x.fonte === 'b3' && x.data === p.data && x.ativo === p.ativo && x.tipo === p.tipo
+          && Math.abs((x.valorUnit * x.qtd) - p.total) < 0.01;
+      });
+      if (b3Dup) { ignorados++; return; }
     }
     state.proventos.push({
       id:        Date.now() + Math.random(),
@@ -24785,7 +24888,8 @@ function b3ppDoImport() {
       ativo:     p.ativo,
       banco:     p.banco || '',
       valorUnit: p.valorUnit,
-      qtd:       p.qtd
+      qtd:       p.qtd,
+      fonte:     'b3'
     });
     adicionados++;
   });
