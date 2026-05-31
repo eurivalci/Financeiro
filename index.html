@@ -3817,6 +3817,7 @@ self.addEventListener('fetch', e => {
             style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:12px">
             <option value="">🏦 Todos os bancos</option>
           </select>
+          <button class="btn btn-secondary" onclick="openB3ProventosImport()" style="border-color:#10b981;color:#10b981" title="Importar proventos do extrato de Movimentações B3">🇧🇷 Importar B3</button>
           <button class="btn btn-success" onclick="openAddProvento()">➕ Novo Provento</button>
         </div>
       </div>
@@ -7854,7 +7855,8 @@ function renderDashVencimentos(patrimonio) {
     var icon  = x.dias <= 30 ? '🚨' : x.dias <= 90 ? '⚠️' : '📅';
     var pct   = patrimonio > 0 ? (x.val / patrimonio * 100) : 0;
     var valFim = x.val;
-    return '<div class="venc-row" onclick="openDecisaoSimulator({valor:' + Math.round(valFim) + ',origem:\'' + (x.a.nome||'').replace(/'/g,'') + '\'})">'
+    var simArgs = '{valor:' + Math.round(valFim) + ',ativoId:' + x.a.id + ',origem:\'' + (x.a.nome||'').replace(/'/g,'') + '\'}';
+    return '<div class="venc-row" onclick="openDecisaoSimulator(' + simArgs + ')">'
       + '<div class="venc-urgency" style="background:' + cor + '"></div>'
       + '<div class="venc-icon">' + icon + '</div>'
       + '<div class="venc-body">'
@@ -7863,7 +7865,7 @@ function renderDashVencimentos(patrimonio) {
       + '</div>'
       + '<div class="venc-dias"><div class="venc-dias-num" style="color:' + cor + '">' + x.dias + '</div><div class="venc-dias-label">dias</div></div>'
       + '<div class="venc-val"><div class="venc-val-main">R$ ' + fmt(valFim) + '</div><div class="venc-val-sub">valor atual</div></div>'
-      + '<button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator({valor:' + Math.round(valFim) + ',origem:\'' + (x.a.nome||'').replace(/'/g,'') + '\'})">🎯 Simular</button>'
+      + '<button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator(' + simArgs + ')">🎯 Simular</button>'
       + '</div>';
   }).join('');
 }
@@ -8484,7 +8486,8 @@ function updateAlertas(patrimonio) {
       const cor  = x.dias <= 30 ? '#ef4444' : x.dias <= 90 ? '#f59e0b' : '#3b82f6';
       const icon = x.dias <= 30 ? '🚨' : x.dias <= 90 ? '⚠️' : '📅';
       const pct  = patrimonio > 0 ? (x.val / patrimonio * 100) : 0;
-      return `<div class="venc-row" onclick="openDecisaoSimulator({valor:${Math.round(x.val)},origem:'${(x.a.nome||'').replace(/'/g,'')}'})" style="padding:12px 8px;margin:0 -8px">
+      const simArgs = `{valor:${Math.round(x.val)},ativoId:${x.a.id},origem:'${(x.a.nome||'').replace(/'/g,'')}'}`;
+      return `<div class="venc-row" onclick="openDecisaoSimulator(${simArgs})" style="padding:12px 8px;margin:0 -8px">
         <div class="venc-urgency" style="background:${cor}"></div>
         <div style="font-size:20px">${icon}</div>
         <div class="venc-body">
@@ -8493,7 +8496,7 @@ function updateAlertas(patrimonio) {
         </div>
         <div class="venc-dias"><div class="venc-dias-num" style="color:${cor}">${x.dias}</div><div class="venc-dias-label">dias</div></div>
         <div class="venc-val"><div class="venc-val-main">R$ ${fmt(x.val)}</div><div class="venc-val-sub">${fmt(pct,1)}% carteira</div></div>
-        <button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator({valor:${Math.round(x.val)},origem:'${(x.a.nome||'').replace(/'/g,'')}'})">🎯 Simular decisão</button>
+        <button class="venc-sim-btn" onclick="event.stopPropagation();openDecisaoSimulator(${simArgs})">🎯 Simular decisão</button>
       </div>`;
     }).join('');
   }
@@ -11141,7 +11144,7 @@ function openRFDetail(id) {
   if (simBtn) {
     simBtn.onclick = function() {
       closeModal('modalRFDetail');
-      openDecisaoSimulator({ valor: Math.round(valFim), origem: a.nome });
+      openDecisaoSimulator({ valor: Math.round(valFim), origem: a.nome, ativoId: a.id });
     };
   }
 
@@ -11313,6 +11316,7 @@ function decEmpChange(scId) {
 
 function openDecisaoSimulator(opts) {
   opts = opts || {};
+  var opts_ref = opts;
   var valor  = opts.valor  || '';
   var origem = opts.origem || '';
 
@@ -11382,9 +11386,14 @@ function openDecisaoSimulator(opts) {
       opts += '</optgroup>';
     });
     selEl.innerHTML = opts;
+    // Auto-selecionar se foi passado ativoId
+    if (opts_ref && opts_ref.ativoId) {
+      selEl.value = String(opts_ref.ativoId);
+      decAtivoSelecionado();
+    }
   }
   var infoEl = document.getElementById('decAtivoInfo');
-  if (infoEl) infoEl.style.display = 'none';
+  if (!opts_ref || !opts_ref.ativoId) { if (infoEl) infoEl.style.display = 'none'; }
 
   // Resetar resultado
   var pl = document.getElementById('decPlaceholder');
@@ -24504,6 +24513,289 @@ function b3DoImport() {
   closeModal('modalB3Import');
   showToast('✅ B3: ' + adicionados + ' adicionados · ' + atualizados + ' atualizados');
 }
+
+// =========================================================
+// B3 PROVENTOS IMPORT — Extrato de Movimentações
+// =========================================================
+var _b3PProvParsed = [];
+
+function openB3ProventosImport() {
+  _b3PProvParsed = [];
+  _b3PProvGoStep1();
+  var err = document.getElementById('b3ppParseError');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  var fi = document.getElementById('b3ppFileInput');
+  if (fi) fi.value = '';
+  var pa = document.getElementById('b3ppPasteArea');
+  if (pa) pa.value = '';
+  document.getElementById('modalB3Proventos').classList.add('open');
+}
+
+function _b3PProvGoStep1() {
+  document.getElementById('b3ppStep1').style.display = '';
+  document.getElementById('b3ppStep2').style.display = 'none';
+  document.getElementById('b3ppBtnVoltar').style.display = 'none';
+  document.getElementById('b3ppBtnConfirm').style.display = 'none';
+}
+
+function b3ppHandleDrop(ev) {
+  var file = ev.dataTransfer.files[0];
+  if (file) b3ppReadFile(file);
+}
+
+function b3ppHandleFile(input) {
+  if (input.files[0]) b3ppReadFile(input.files[0]);
+}
+
+function b3ppReadFile(file) {
+  var name = (file.name || '').toLowerCase();
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    b3ppReadExcel(file);
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) { b3ppProcessText(e.target.result); };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function b3ppReadExcel(file) {
+  function doRead() {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb   = XLSX.read(data, { type: 'array' });
+        var best = '', bestScore = -1;
+        wb.SheetNames.forEach(function(sn) {
+          var csv = XLSX.utils.sheet_to_csv(wb.Sheets[sn], { FS: ';', blankrows: false });
+          var lc  = csv.toLowerCase();
+          var score = 0;
+          if (lc.includes('movimenta')) score += 5;
+          if (lc.includes('dividendo') || lc.includes('provento')) score += 4;
+          if (lc.includes('produto')) score += 2;
+          if (lc.includes('institui')) score += 1;
+          if (score > bestScore || (score === bestScore && csv.length > best.length)) {
+            bestScore = score; best = csv;
+          }
+        });
+        b3ppProcessText(best);
+      } catch(err) {
+        var errEl = document.getElementById('b3ppParseError');
+        if (errEl) { errEl.textContent = '❌ Erro ao ler Excel: ' + err.message; errEl.style.display = ''; }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  if (window.XLSX) { doRead(); } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload  = doRead;
+    s.onerror = function() {
+      var errEl = document.getElementById('b3ppParseError');
+      if (errEl) { errEl.textContent = '❌ Não foi possível carregar a biblioteca Excel. Verifique sua conexão.'; errEl.style.display = ''; }
+    };
+    document.head.appendChild(s);
+  }
+}
+
+// Map B3 movimentação type → app provento type
+function _b3ppTipoProvento(mov) {
+  var m = (mov || '').toLowerCase().trim();
+  if (m.includes('dividendo')) return 'Dividendo';
+  if (m.includes('juros sobre capital') || m === 'jcp') return 'JCP';
+  if (m.includes('rendimento')) return 'Rendimento';
+  if (m.includes('amortiza')) return 'Amortização';
+  if (m.includes('juros')) return 'JCP';
+  if (m.includes('royalt')) return 'Rendimento';
+  return null; // not a provento type — skip
+}
+
+// Extract ticker from B3 Produto field: "PETR4 - PETROBRAS PN N2" → "PETR4"
+function _b3ppTicker(produto) {
+  if (!produto) return '';
+  var clean = produto.trim();
+  // Tesouro Direto — keep as-is (no dash separation by ticker)
+  if (clean.toLowerCase().includes('tesouro')) return clean.split('-')[0].trim() || clean;
+  // Standard: "TICK4 - Full Name..." or "TICK11CI ER - ..."
+  var dashIdx = clean.indexOf(' - ');
+  var ticker = dashIdx >= 0 ? clean.substring(0, dashIdx).trim() : clean.split(' ')[0];
+  return ticker.toUpperCase();
+}
+
+function b3ppProcessText(text) {
+  var errEl = document.getElementById('b3ppParseError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  var firstLines = text.split(/\r?\n/).slice(0,5).join('\n');
+  var sep = firstLines.indexOf(';') >= 0 ? ';' : ',';
+
+  var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+
+  // Find header row
+  var headerIdx = -1;
+  for (var i = 0; i < Math.min(lines.length, 30); i++) {
+    var ln = lines[i].toLowerCase();
+    if ((ln.includes('movimenta') || ln.includes('tipo')) && (ln.includes('produto') || ln.includes('ativo'))) {
+      headerIdx = i; break;
+    }
+    if (ln.includes('data') && ln.includes('produto')) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) {
+    if (errEl) { errEl.textContent = '❌ Formato não reconhecido. Verifique se é o extrato de Movimentações do Portal B3.'; errEl.style.display = ''; }
+    return;
+  }
+
+  var headers = _b3SplitLine(lines[headerIdx], sep);
+  var iData   = _b3Col(headers, ['data', 'data da operação', 'data da operacao', 'data negocio']);
+  var iMov    = _b3Col(headers, ['tipo de movimentação', 'tipo de movimentacao', 'movimentação', 'movimentacao', 'tipo movimentação', 'tipo', 'descrição', 'descricao']);
+  var iProd   = _b3Col(headers, ['produto', 'ativo', 'papel', 'ticker', 'código', 'codigo']);
+  var iInst   = _b3Col(headers, ['instituição', 'instituicao', 'corretora', 'banco']);
+  var iQtd    = _b3Col(headers, ['quantidade', 'qtd', 'qt']);
+  var iPreco  = _b3Col(headers, ['preço unitário', 'preco unitario', 'preço unit', 'preco unit', 'valor unitário', 'valor unit', 'valor unitario']);
+  var iValOp  = _b3Col(headers, ['valor da operação', 'valor da operacao', 'valor operação', 'valor operacao', 'valor total', 'valor']);
+  var iES     = _b3Col(headers, ['entrada/saída', 'entrada/saida', 'credito/debito', 'tipo lancamento', 'lancamento']);
+
+  var parsed = [];
+  for (var li = headerIdx + 1; li < lines.length; li++) {
+    var line = lines[li].trim();
+    if (!line) continue;
+    var cols = _b3SplitLine(line, sep);
+    if (cols.length < 3) continue;
+
+    // Skip debit rows (sales, purchases) based on Entrada/Saída
+    if (iES >= 0) {
+      var es = (cols[iES] || '').toLowerCase();
+      if (es.includes('débito') || es.includes('debito') || es === 'd') continue;
+    }
+
+    var movRaw = iMov >= 0 ? (cols[iMov] || '') : '';
+    var tipoApp = _b3ppTipoProvento(movRaw);
+    if (!tipoApp) continue; // not a provento movement
+
+    var dataRaw = iData >= 0 ? (cols[iData] || '') : '';
+    // Convert DD/MM/YYYY → YYYY-MM-DD
+    var dataISO = dataRaw;
+    var dmatch = dataRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dmatch) dataISO = dmatch[3] + '-' + dmatch[2] + '-' + dmatch[1];
+
+    var produto = iProd >= 0 ? (cols[iProd] || '') : '';
+    var ticker  = _b3ppTicker(produto);
+    if (!ticker) continue;
+
+    var inst    = iInst  >= 0 ? _b3CorretoraNome(cols[iInst]  || '') : '';
+    var qtdRaw  = iQtd   >= 0 ? (cols[iQtd]   || '') : '';
+    var precoRaw = iPreco >= 0 ? (cols[iPreco] || '') : '';
+    var valOpRaw = iValOp >= 0 ? (cols[iValOp] || '') : '';
+
+    var qtd    = _b3ParseNum(qtdRaw);
+    var preco  = _b3ParseNum(precoRaw);
+    var valOp  = _b3ParseNum(valOpRaw);
+
+    // Derive valorUnit and qtd for the app
+    var valorUnit, finalQtd;
+    if (qtd && qtd > 0 && preco && preco > 0) {
+      valorUnit = preco;
+      finalQtd  = qtd;
+    } else if (valOp && valOp > 0 && qtd && qtd > 0) {
+      valorUnit = valOp / qtd;
+      finalQtd  = qtd;
+    } else if (valOp && valOp > 0) {
+      valorUnit = valOp;
+      finalQtd  = 1;
+    } else {
+      continue; // can't determine value
+    }
+
+    if (valorUnit <= 0) continue;
+
+    parsed.push({
+      data:      dataISO,
+      tipo:      tipoApp,
+      tipoOrig:  movRaw,
+      ativo:     ticker,
+      produto:   produto,
+      banco:     inst,
+      valorUnit: valorUnit,
+      qtd:       finalQtd,
+      total:     valorUnit * finalQtd
+    });
+  }
+
+  if (!parsed.length) {
+    if (errEl) { errEl.textContent = '❌ Nenhum provento encontrado. Certifique-se de usar o extrato de Movimentações (não de Posição) e que contém lançamentos de Dividendo, JCP ou Rendimento.'; errEl.style.display = ''; }
+    return;
+  }
+
+  _b3PProvParsed = parsed;
+  b3ppRenderStep2();
+}
+
+function b3ppRenderStep2() {
+  document.getElementById('b3ppCountBadge').textContent = _b3PProvParsed.length + ' proventos';
+
+  var body = document.getElementById('b3ppPreviewBody');
+  body.innerHTML = '';
+
+  _b3PProvParsed.forEach(function(p, idx) {
+    var cor = p.tipo === 'Dividendo' ? '#10b981' : p.tipo === 'JCP' ? '#3b82f6' : p.tipo === 'Rendimento' ? '#8b5cf6' : '#f59e0b';
+    body.insertAdjacentHTML('beforeend',
+      '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:6px 10px;text-align:center"><input type="checkbox" class="b3ppRowChk" data-idx="' + idx + '" checked style="cursor:pointer"></td>' +
+        '<td style="padding:6px 10px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">' + p.data + '</td>' +
+        '<td style="padding:6px 10px;font-weight:700;font-family:var(--mono);color:var(--text-primary)">' + p.ativo + '</td>' +
+        '<td style="padding:6px 10px"><span style="background:rgba(0,0,0,.08);color:' + cor + ';border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid ' + cor + '40">' + p.tipo + '</span></td>' +
+        '<td style="padding:6px 10px;font-size:11px;color:var(--text-muted)">' + (p.banco || '—') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right;font-family:var(--mono)">' + (p.qtd === 1 && p.valorUnit === p.total ? '—' : p.qtd.toLocaleString('pt-BR', {maximumFractionDigits:0})) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right;font-family:var(--mono)">' + 'R$ ' + p.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>' +
+      '</tr>'
+    );
+  });
+
+  document.getElementById('b3ppStep1').style.display = 'none';
+  document.getElementById('b3ppStep2').style.display = '';
+  document.getElementById('b3ppBtnVoltar').style.display = '';
+  document.getElementById('b3ppBtnConfirm').style.display = '';
+}
+
+function b3ppToggleAll(cb) {
+  document.querySelectorAll('.b3ppRowChk').forEach(function(c){ c.checked = cb.checked; });
+}
+
+function b3ppDoImport() {
+  var mode = (document.querySelector('input[name="b3ppMergeMode"]:checked') || {}).value || 'add_all';
+  var checked = Array.from(document.querySelectorAll('.b3ppRowChk')).filter(function(c){ return c.checked; }).map(function(c){ return parseInt(c.dataset.idx); });
+  var toImport = checked.map(function(i){ return _b3PProvParsed[i]; });
+  if (!toImport.length) { showToast('⚠️ Selecione ao menos um provento'); return; }
+
+  var adicionados = 0, ignorados = 0;
+
+  toImport.forEach(function(p) {
+    if (mode === 'skip_dup') {
+      // Check if exact same date+ativo+tipo+total already exists
+      var dup = state.proventos.some(function(x){
+        return x.data === p.data && x.ativo === p.ativo && x.tipo === p.tipo
+          && Math.abs((x.valorUnit * x.qtd) - p.total) < 0.01;
+      });
+      if (dup) { ignorados++; return; }
+    }
+    state.proventos.push({
+      id:        Date.now() + Math.random(),
+      data:      p.data,
+      tipo:      p.tipo,
+      ativo:     p.ativo,
+      banco:     p.banco || '',
+      valorUnit: p.valorUnit,
+      qtd:       p.qtd
+    });
+    adicionados++;
+  });
+
+  autoSave(); updateDashboard(); renderChartProventos(12); renderProventosTable();
+  closeModal('modalB3Proventos');
+  var msg = '✅ B3 Proventos: ' + adicionados + ' importados';
+  if (ignorados) msg += ' · ' + ignorados + ' ignorados (duplicados)';
+  showToast(msg);
+}
 </script>
         <button class="modal-close" onclick="closeModal('modalGenerico')">✕</button>
       </div>
@@ -24733,6 +25025,112 @@ function b3DoImport() {
           <div style="display:flex;gap:8px">
             <button class="btn btn-secondary" onclick="closeModal('modalB3Import')">Cancelar</button>
             <button class="btn btn-primary" id="b3BtnConfirm" style="display:none" onclick="b3DoImport()">✅ Confirmar Importação</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MODAL: B3 PROVENTOS IMPORT ══════════════════════════ -->
+    <div class="modal-overlay" id="modalB3Proventos">
+      <div class="modal" style="max-width:700px;max-height:92vh;display:flex;flex-direction:column">
+        <div class="modal-header">
+          <div class="modal-title">🇧🇷 Importar Proventos do Portal B3</div>
+          <button class="modal-close" onclick="closeModal('modalB3Proventos')">✕</button>
+        </div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;display:grid;gap:14px">
+
+          <!-- STEP 1: UPLOAD -->
+          <div id="b3ppStep1">
+            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+              <div style="font-weight:700;color:#10b981;margin-bottom:6px">📋 Como exportar proventos do Portal B3</div>
+              <ol style="margin:0;padding-left:18px;line-height:1.9">
+                <li>Acesse <strong>investidor.b3.com.br</strong> → faça login com CPF</li>
+                <li>Vá em <strong>Extratos e Informativos → Movimentações</strong></li>
+                <li>Filtre o período desejado e clique em <strong>Exportar Excel</strong></li>
+                <li>O arquivo contém Dividendos, JCP, Rendimentos e Amortizações automaticamente</li>
+                <li>Carregue o arquivo abaixo — ou cole a tabela copiada do Excel</li>
+              </ol>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--border);border-radius:var(--radius);padding:24px 16px;cursor:pointer;text-align:center;transition:border-color .2s"
+                onclick="document.getElementById('b3ppFileInput').click()"
+                ondragover="event.preventDefault();this.style.borderColor='#10b981'"
+                ondragleave="this.style.borderColor=''"
+                ondrop="event.preventDefault();this.style.borderColor='';b3ppHandleDrop(event)">
+                <span style="font-size:34px">📂</span>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Arraste ou clique</div>
+                <div style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:3px 8px;border-radius:20px">.xlsx · .xls · .csv · .txt</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="font-size:11px;color:var(--text-muted)">Ou cole a tabela copiada do Excel:</div>
+                <textarea id="b3ppPasteArea"
+                  placeholder="Cole aqui o conteúdo do extrato de Movimentações..."
+                  style="flex:1;resize:none;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:11px;color:var(--text-primary);font-family:monospace;min-height:100px"
+                  oninput="if(this.value.trim()) b3ppProcessText(this.value)"></textarea>
+              </div>
+            </div>
+            <input type="file" id="b3ppFileInput" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="b3ppHandleFile(this)">
+            <div id="b3ppParseError" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:#ef4444;margin-top:10px"></div>
+          </div>
+
+          <!-- STEP 2: PREVIEW -->
+          <div id="b3ppStep2" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg-input);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px">
+              <span style="font-size:22px">💵</span>
+              <div>
+                <div style="font-size:13px;font-weight:700">Proventos identificados</div>
+                <div style="font-size:11px;color:var(--text-muted)">Dividendos, JCP, Rendimentos e Amortizações do extrato B3</div>
+              </div>
+              <div style="margin-left:auto">
+                <span id="b3ppCountBadge" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700"></span>
+              </div>
+            </div>
+
+            <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:12px">
+              <div style="max-height:280px;overflow-y:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead>
+                    <tr style="background:var(--bg-input);position:sticky;top:0">
+                      <th style="padding:7px 10px;width:32px;text-align:center">
+                        <input type="checkbox" id="b3ppSelectAll" checked onchange="b3ppToggleAll(this)" style="cursor:pointer">
+                      </th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Data</th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Ativo</th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Tipo</th>
+                      <th style="padding:7px 10px;text-align:left;color:var(--text-muted)">Instituição</th>
+                      <th style="padding:7px 10px;text-align:right;color:var(--text-muted)">Qtd</th>
+                      <th style="padding:7px 10px;text-align:right;color:var(--text-muted)">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="b3ppPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-input);border-radius:var(--radius-sm);padding:12px 14px">
+              <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Como importar</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="radio" name="b3ppMergeMode" value="add_all" checked style="margin-top:2px">
+                  <div><strong>Adicionar tudo</strong> — Importa todos os proventos selecionados</div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="radio" name="b3ppMergeMode" value="skip_dup" style="margin-top:2px">
+                  <div><strong>Ignorar duplicatas</strong> — Pula proventos com mesma data, ativo, tipo e valor já cadastrados</div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="display:flex;gap:8px;justify-content:space-between">
+          <div>
+            <button class="btn btn-secondary" id="b3ppBtnVoltar" style="display:none" onclick="_b3PProvGoStep1()">← Voltar</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="closeModal('modalB3Proventos')">Cancelar</button>
+            <button class="btn btn-primary" id="b3ppBtnConfirm" style="display:none" onclick="b3ppDoImport()">✅ Importar Proventos</button>
           </div>
         </div>
       </div>
