@@ -3916,7 +3916,10 @@ self.addEventListener('fetch', e => {
           </div>
           <div style="padding:14px 16px">
             <div id="provDrillSummary" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)"></div>
-            <div id="provDrillList" style="max-height:320px;overflow-y:auto"></div>
+            <div style="height:170px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+              <canvas id="provDrillChartCanvas"></canvas>
+            </div>
+            <div id="provDrillList" style="max-height:280px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
@@ -21491,11 +21494,8 @@ function showProvDrill(title, provs) {
   if (titleEl) titleEl.textContent = title;
 
   const total  = provs.reduce((s,p)=>s+p.valorUnit*p.qtd, 0);
-  const byTipo = {}, byAtivo = {};
-  provs.forEach(p => {
-    byTipo[p.tipo]   = (byTipo[p.tipo]  ||0)+p.valorUnit*p.qtd;
-    byAtivo[p.ativo] = (byAtivo[p.ativo]||0)+p.valorUnit*p.qtd;
-  });
+  const byAtivo = {};
+  provs.forEach(p => { byAtivo[p.ativo] = (byAtivo[p.ativo]||0)+p.valorUnit*p.qtd; });
 
   const tipoColors = {'Dividendo':'#10b981','JCP':'#3b82f6','Rendimento FII':'#f59e0b',
     'Rendimento':'#06b6d4','Juros Tesouro':'#f97316','Amortização':'#8b5cf6',
@@ -21529,6 +21529,89 @@ function showProvDrill(title, provs) {
     '</div>';
   }).join('') || '<div style="color:var(--text-muted);padding:8px">Sem registros</div>';
 
+  // ── Gráfico de evolução mensal dos mesmos ativos ──────────────────
+  const drillCanvas = document.getElementById('provDrillChartCanvas');
+  if (drillCanvas) {
+    if (state.charts['provDrillChart']) { state.charts['provDrillChart'].destroy(); delete state.charts['provDrillChart']; }
+    const isDark    = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#8ba3cc' : '#3a5a8c';
+    const gridColor = isDark ? 'rgba(30,45,71,0.8)' : 'rgba(209,221,245,0.6)';
+    const paleta    = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#f43f5e','#06b6d4','#f97316','#84cc16','#a78bfa'];
+    const nomesMes  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const hoje      = new Date();
+
+    // Últimos 12 meses
+    const meses = Array.from({length:12}, (_,i)=>{ const d=new Date(hoje); d.setMonth(d.getMonth()-11+i); return d; });
+    const labels = meses.map(d=>`${nomesMes[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`);
+
+    // Ativos presentes no drill — até 8 para não poluir
+    const ativosNoDrill = Object.keys(byAtivo).sort((a,b)=>byAtivo[b]-byAtivo[a]).slice(0,8);
+
+    const datasets = ativosNoDrill.map((ativo, i) => ({
+      label: ativo,
+      data: meses.map(d =>
+        state.proventos.filter(p => {
+          const pd = new Date(p.data+'T12:00:00');
+          return p.ativo === ativo && pd.getMonth()===d.getMonth() && pd.getFullYear()===d.getFullYear();
+        }).reduce((s,p)=>s+p.valorUnit*p.qtd, 0)
+      ),
+      backgroundColor: paleta[i % paleta.length] + 'cc',
+      borderColor:     paleta[i % paleta.length],
+      borderWidth: 1,
+      borderRadius: 3,
+      stack: 'total',
+    }));
+
+    // Linha de total
+    const totalPorMes = meses.map(d =>
+      state.proventos.filter(p => {
+        const pd = new Date(p.data+'T12:00:00');
+        return ativosNoDrill.includes(p.ativo) && pd.getMonth()===d.getMonth() && pd.getFullYear()===d.getFullYear();
+      }).reduce((s,p)=>s+p.valorUnit*p.qtd, 0)
+    );
+    datasets.push({
+      type: 'line',
+      label: 'Total',
+      data: totalPorMes,
+      borderColor: '#ffffff88',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [4,3],
+      pointRadius: 2,
+      pointBackgroundColor: '#ffffffaa',
+      stack: undefined,
+      order: 0,
+    });
+
+    state.charts['provDrillChart'] = new Chart(drillCanvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: ativosNoDrill.length > 1,
+            position: 'top',
+            labels: { color: textColor, font:{size:9}, boxWidth:8, padding:6 }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: R$ ${fmt(ctx.parsed.y,2)}`,
+              footer: items => {
+                const s = items.filter(i=>i.dataset.type!=='line').reduce((a,i)=>a+i.parsed.y,0);
+                return items.length>1 ? ['Total: R$ '+fmt(s,2)] : [];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked:true, ticks:{color:textColor,font:{size:9}}, grid:{color:gridColor} },
+          y: { stacked:true, ticks:{color:textColor,font:{size:9},callback:v=>'R$'+fmt(v,0)}, grid:{color:gridColor} }
+        }
+      }
+    });
+  }
+
   panel.style.display = 'block';
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -21536,6 +21619,7 @@ function showProvDrill(title, provs) {
 function closeProvDrill() {
   const el = document.getElementById('provDrillPanel');
   if (el) el.style.display = 'none';
+  if (state.charts['provDrillChart']) { state.charts['provDrillChart'].destroy(); delete state.charts['provDrillChart']; }
 }
 
 function provAutoFillBanco() {
@@ -22036,11 +22120,11 @@ function getEnabledModules() {
 }
 
 function toggleModule(id) {
-  const enabled = getEnabledModules();
+  // Usa cópia para não modificar a referência interna durante a iteração
+  const enabled = getEnabledModules().slice();
   const card = document.getElementById('modCard-' + id);
   const idx  = enabled.indexOf(id);
   if (idx >= 0) {
-    // Não desabilitar dashboard
     if (id === 'dashboard') { showToast('⚠ Dashboard não pode ser desabilitado.'); return; }
     enabled.splice(idx, 1);
     if (card) card.classList.remove('enabled');
@@ -22049,7 +22133,9 @@ function toggleModule(id) {
     if (card) card.classList.add('enabled');
   }
   state.modulesConfig = { enabled };
-  applyModulesConfig();
+  // Passa a lista diretamente para evitar que getEnabledModules() re-adicione o módulo desabilitado
+  applyModulesConfig(enabled);
+  saveState();
 }
 
 function selectAllModules(enable) {
@@ -22059,6 +22145,8 @@ function selectAllModules(enable) {
     const card = document.getElementById('modCard-' + id);
     if (card) card.classList.toggle('enabled', enabled.includes(id));
   });
+  applyModulesConfig(enabled);
+  saveState();
 }
 
 function applyModulePreset(preset) {
@@ -22073,6 +22161,8 @@ function applyModulePreset(preset) {
     const card = document.getElementById('modCard-' + id);
     if (card) card.classList.toggle('enabled', enabled.includes(id));
   });
+  applyModulesConfig(enabled);
+  saveState();
   showToast('✅ Preset aplicado!');
 }
 
@@ -22085,19 +22175,18 @@ function saveModules() {
   if(msgEl){ msgEl.textContent='✅ Módulos aplicados!'; setTimeout(()=>msgEl.textContent='',3000); }
 }
 
-function applyModulesConfig() {
-  const enabled = getEnabledModules();
-  // Atualizar nav-items na sidebar: mostrar/esconder baseado em módulos ativos
+function applyModulesConfig(enabledList) {
+  // Aceita lista direta (de toggleModule) ou busca do estado (na inicialização)
+  const enabled = enabledList || getEnabledModules();
   ALL_MODULES.forEach(id => {
     const isEnabled = enabled.includes(id);
-    // Encontrar nav-item pelo onclick
     document.querySelectorAll('.nav-item').forEach(el => {
       if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(`'${id}'`)) {
         el.style.display = isEnabled ? '' : 'none';
       }
     });
   });
-  // Esconder nav-section vazia
+  // Esconder nav-section sem itens visíveis
   document.querySelectorAll('.nav-section').forEach(sec => {
     const visItems = [...sec.querySelectorAll('.nav-item')]
       .filter(el => el.style.display !== 'none' && !el.getAttribute('onclick')?.includes("'config'"));
