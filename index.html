@@ -9635,7 +9635,10 @@ function initCharts(grafPeriod) {
 
   const setoresCountR  = pDetails.setores || 1;
   const diversScoreR   = Math.min(100, setoresCountR * 14 + (pDetails.pctRF > 20 ? 15 : 0));
-  const rendaPassivaR  = Math.min(100, (state.proventos.reduce((s,p)=>s+p.valorUnit*p.qtd,0) / Math.max(patrimonio,1)) * 800 + (pDetails.pctFIIs * 0.8));
+  const _rpCutoff = new Date(); _rpCutoff.setFullYear(_rpCutoff.getFullYear()-1);
+  const _prov12M  = state.proventos.filter(p=>new Date(p.data+'T12:00:00')>=_rpCutoff).reduce((s,p)=>s+p.valorUnit*p.qtd,0);
+  const _yieldAnual = patrimonio > 0 ? (_prov12M / patrimonio) * 100 : 0;
+  const rendaPassivaR  = Math.min(100, _yieldAnual * 10 + (pDetails.pctFIIs * 0.5));
   const exposRVR       = Math.min(100, pDetails.pctRVPuras + pDetails.pctFIIs * 0.5);
   const liquidezR      = Math.min(100, pDetails.pctCaixa * 2 + pDetails.pctRF * 0.6);
   const crescimentoR   = Math.min(100, exposRVR * 0.9 + 10);
@@ -16781,13 +16784,15 @@ function _grahamBuildTable(ativos, results) {
     return uB - uA;
   });
 
+  const hasToken = !!getBrapiToken();
+
   const rows = sorted.map(a => {
     const r     = results[a.ticker];
     const price = (typeof mercadoLiveData !== 'undefined' && mercadoLiveData[a.ticker]?.price) || a.precoMedio;
     if (!r || r.graham == null) {
       const reason = !r ? 'Erro na busca'
-        : r.noToken   ? 'Configure token Brapi'
-        : !r.hasFundamentals ? 'Sem P/L ou P/VP'
+        : (r.noToken && !hasToken) ? 'Configure token Brapi'
+        : !r.hasFundamentals ? 'Sem dados na Brapi'
         : (r.pl != null && r.pl <= 0) ? 'Empresa em prejuízo'
         : 'LPA ou VPA indisponível';
       return `<tr>
@@ -16839,7 +16844,7 @@ function _grahamBuildTable(ativos, results) {
   </table></div>
   <div style="font-size:10px;color:var(--text-muted);padding:8px 14px;border-top:1px solid var(--border)">
     📡 Brapi · Graham = √(22,5 × LPA × VPA) · Ordenado por maior desconto · Cache 1h
-    ${comDados.length === 0 ? ' · <span style="color:#f59e0b">⚠️ Nenhum dado fundamental retornado — configure seu token Brapi em ⚙️ Configurações</span>' : ''}
+    ${comDados.length === 0 ? (hasToken ? ' · <span style="color:#f59e0b">⚠️ Nenhum dado fundamental retornado pela Brapi para estes ativos (FIIs/ativos sem P/L)</span>' : ' · <span style="color:#f59e0b">⚠️ Configure seu token Brapi em ⚙️ Configurações para obter dados fundamentalistas</span>') : ''}
   </div>`;
 }
 
@@ -16909,6 +16914,46 @@ function renderPerfStrip(pageId) {
 // =========================================================
 // IA CONTEXTUAL — ASSISTENTE DE CARTEIRA
 // =========================================================
+function _iaRenderMarkdown(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/^### (.+)$/gm,'<h4 style="margin:14px 0 4px;font-size:13px;font-weight:700;color:var(--text-primary)">$1</h4>')
+    .replace(/^## (.+)$/gm,'<h3 style="margin:16px 0 6px;font-size:14px;font-weight:700;color:var(--accent-blue)">$1</h3>')
+    .replace(/^# (.+)$/gm,'<h2 style="margin:18px 0 8px;font-size:15px;font-weight:800;color:var(--text-primary)">$1</h2>')
+    .replace(/^[\*\-] (.+)$/gm,'<li style="margin:3px 0;padding-left:4px">$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li style="margin:3px 0;list-style-type:decimal;padding-left:4px"><strong>$1.</strong> $2</li>')
+    .replace(/(<li.*<\/li>\n?)+/g, m => `<ul style="margin:8px 0 8px 18px;padding:0">${m}</ul>`)
+    .replace(/\n\n/g,'</p><p style="margin:0 0 10px">')
+    .replace(/\n/g,'<br>');
+}
+
+function showIAModal(titulo, html, model) {
+  let overlay = document.getElementById('modalIAAssistente');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modalIAAssistente';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.onclick = e => { if(e.target===overlay) overlay.style.display='none'; };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;width:min(720px,95vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.45)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary)">💬 ${titulo}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gemini ${model} · Contexto real da carteira · Não constitui recomendação de investimento</div>
+        </div>
+        <button onclick="document.getElementById('modalIAAssistente').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);line-height:1;padding:4px">✕</button>
+      </div>
+      <div style="overflow-y:auto;padding:20px 24px;font-size:13.5px;line-height:1.75;color:var(--text-secondary)">
+        <p style="margin:0 0 10px">${html}</p>
+      </div>
+    </div>`;
+  overlay.style.display = 'flex';
+}
+
 async function forecastPergunta() {
   const pergunta = (document.getElementById('fcPergunta').value || '').trim();
   if (!pergunta) { alert('Digite uma pergunta'); return; }
@@ -16928,30 +16973,79 @@ async function forecastPergunta() {
   resEl.style.display = 'block';
   resEl.innerHTML = `<div style="padding:14px;text-align:center;color:var(--text-muted)"><div style="font-size:24px;animation:fc-spin 1s linear infinite;display:inline-block">⏳</div><br>Analisando sua carteira…</div>`;
 
-  // Build context
-  const patrimonio    = calcPatrimonio();
-  const rvAtivos      = (state.ativos||[]).filter(a=>a.categoria==='rv');
-  const rfAtivos      = (state.ativos||[]).filter(a=>a.categoria==='rf');
-  const totalRV       = rvAtivos.reduce((s,a)=>s+a.qtd*getCotacao(a.ticker,a.precoMedio),0);
-  const totalRF       = rfAtivos.reduce((s,a)=>s+calcRFAtualizado(a),0);
-  const proventosAno  = (state.proventos||[]).filter(p=>new Date(p.data+'T12:00:00').getFullYear()===new Date().getFullYear()).reduce((s,p)=>s+p.valorUnit*p.qtd,0);
-  const topAtivos     = rvAtivos.map(a=>({ticker:a.ticker,valor:a.qtd*getCotacao(a.ticker,a.precoMedio),setor:a.setor})).sort((a,b)=>b.valor-a.valor).slice(0,5);
-  const setores       = {};
+  // Build rich context
+  const patrimonio  = calcPatrimonio();
+  const rvAtivos    = (state.ativos||[]).filter(a=>a.categoria==='rv');
+  const rfAtivos    = (state.ativos||[]).filter(a=>a.categoria==='rf');
+  const totalRV     = rvAtivos.reduce((s,a)=>s+a.qtd*getCotacao(a.ticker,a.precoMedio),0);
+  const totalRF     = rfAtivos.reduce((s,a)=>s+calcRFAtualizado(a),0);
+  const totalCrypto = (state.cryptos||[]).reduce((s,c)=>{ const p=(window.crypoPrices||{})[c.coin]||0; return s+c.qtd*p; },0);
+  const hoje        = new Date();
+  const cutoff12M   = new Date(); cutoff12M.setFullYear(cutoff12M.getFullYear()-1);
+  const provs12M    = (state.proventos||[]).filter(p=>new Date(p.data+'T12:00:00')>=cutoff12M);
+  const prov12MTotal= provs12M.reduce((s,p)=>s+p.valorUnit*p.qtd,0);
+  const provAnoAtual= (state.proventos||[]).filter(p=>new Date(p.data+'T12:00:00').getFullYear()===hoje.getFullYear()).reduce((s,p)=>s+p.valorUnit*p.qtd,0);
+  const custoBrutoRV= rvAtivos.reduce((s,a)=>s+a.qtd*a.precoMedio,0);
+  const yoc         = custoBrutoRV>0 ? (prov12MTotal/custoBrutoRV*100) : 0;
+  const setores     = {};
   rvAtivos.forEach(a=>{ const v=a.qtd*getCotacao(a.ticker,a.precoMedio); setores[a.setor||'Outros']=(setores[a.setor||'Outros']||0)+v; });
-  const totalCrypto   = (state.cryptos||[]).reduce((s,c)=>{ const p=(window.crypoPrices||{})[c.coin]||0; return s+c.qtd*p; },0);
+  const ativosLista = rvAtivos.map(a=>{
+    const v=a.qtd*getCotacao(a.ticker,a.precoMedio);
+    const pct=patrimonio>0?(v/patrimonio*100):0;
+    return `${a.ticker} (${a.setor||'?'}, R$${fmt(v)}, ${fmt(pct,1)}% carteira, PM R$${fmt(a.precoMedio,2)})`;
+  }).sort((a,b)=>b.localeCompare(a)).join('\n  ');
+  const rfLista = rfAtivos.map(a=>{
+    const v=calcRFAtualizado(a);
+    return `${a.nome||a.tipo} – R$${fmt(v)} @ ${fmt(a.taxa||0,2)}%${a.indexador?'/'+a.indexador:''}`;
+  }).join('\n  ');
+  const nomesMes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const provMensal = Array.from({length:12},(_,i)=>{
+    const d=new Date(hoje); d.setMonth(d.getMonth()-11+i);
+    const v=(state.proventos||[]).filter(p=>{const pd=new Date(p.data+'T12:00:00');return pd.getMonth()===d.getMonth()&&pd.getFullYear()===d.getFullYear();}).reduce((s,p)=>s+p.valorUnit*p.qtd,0);
+    return `${nomesMes[d.getMonth()]}/${d.getFullYear()}: R$${fmt(v)}`;
+  }).join(', ');
 
-  const ctx = `DADOS DA CARTEIRA (${new Date().toLocaleDateString('pt-BR')}):
-- Patrimônio total: R$ ${fmt(patrimonio)}
-- Renda Variável: R$ ${fmt(totalRV)} (${fmt(patrimonio>0?totalRV/patrimonio*100:0)}%)
-- Renda Fixa: R$ ${fmt(totalRF)} (${fmt(patrimonio>0?totalRF/patrimonio*100:0)}%)
-- Crypto: R$ ${fmt(totalCrypto)}
-- Top ativos: ${topAtivos.map(a=>`${a.ticker}(R$${fmt(a.valor)})`).join(', ')}
-- Setores: ${Object.entries(setores).map(([s,v])=>`${s}(${fmt(patrimonio>0?v/patrimonio*100:0)}%)`).join(', ')}
-- Proventos no ano: R$ ${fmt(proventosAno)}
-- CDI atual: ${fmt(CDI_ANUAL)}% a.a. | IPCA: ${fmt(IPCA_ANUAL)}% a.a.
-- Estratégia alvo: RV ${(state.estrategia||{}).rv||60}% / RF ${(state.estrategia||{}).rf||40}%`;
+  const ctx = `=== CARTEIRA EDP INVESTIMENTOS (${hoje.toLocaleDateString('pt-BR')}) ===
 
-  const prompt = `Você é um analista financeiro sênior brasileiro especializado em investimentos pessoais. Responda a pergunta do usuário de forma objetiva, personalizada e em português, baseando-se nos dados reais da carteira dele.\n\n${ctx}\n\nPERGUNTA: ${pergunta}\n\nDê uma resposta direta, use os números concretos da carteira, e termine com 1-2 recomendações práticas.`;
+PATRIMÔNIO TOTAL: R$ ${fmt(patrimonio)}
+  - Renda Variável: R$ ${fmt(totalRV)} (${fmt(patrimonio>0?totalRV/patrimonio*100:0,1)}%)
+  - Renda Fixa:     R$ ${fmt(totalRF)} (${fmt(patrimonio>0?totalRF/patrimonio*100:0,1)}%)
+  - Crypto:         R$ ${fmt(totalCrypto)} (${fmt(patrimonio>0?totalCrypto/patrimonio*100:0,1)}%)
+
+ATIVOS RV (${rvAtivos.length} posições):
+  ${ativosLista}
+
+SETORES RV:
+  ${Object.entries(setores).sort((a,b)=>b[1]-a[1]).map(([s,v])=>`${s}: R$${fmt(v)} (${fmt(patrimonio>0?v/patrimonio*100:0,1)}%)`).join('\n  ')}
+
+RENDA FIXA:
+  ${rfLista||'Nenhum ativo RF'}
+
+PROVENTOS — últimos 12 meses:
+  Total 12M: R$ ${fmt(prov12MTotal)} | Ano atual: R$ ${fmt(provAnoAtual)}
+  Yield on Cost: ${fmt(yoc,2)}% a.a.
+  Histórico mensal: ${provMensal}
+
+INDICADORES:
+  CDI: ${fmt(CDI_ANUAL,2)}% a.a. | IPCA: ${fmt(IPCA_ANUAL,2)}% a.a.
+  Estratégia alvo: RV ${(state.estrategia||{}).rv||60}% / RF ${(state.estrategia||{}).rf||40}%`;
+
+  const prompt = `Você é um analista financeiro sênior brasileiro, especializado em investimentos pessoais, com profundo conhecimento em análise fundamentalista, alocação de ativos, renda passiva e planejamento financeiro de longo prazo.
+
+Analise a carteira real do investidor abaixo e responda à pergunta de forma:
+- **Personalizada**: use os números reais da carteira
+- **Didática**: explique conceitos quando necessário
+- **Fundamentalista**: embase as análises em fundamentos
+- **Objetiva**: vá direto ao ponto, sem enrolação
+- **Em Markdown**: use ## cabeçalhos, **negrito**, listas e números para organizar
+
+${ctx}
+
+## PERGUNTA DO INVESTIDOR:
+${pergunta}
+
+---
+Estruture sua resposta com seções claras. Use números concretos da carteira. Termine com uma seção "## Recomendações" com ações práticas e priorizadas.`;
 
   const models = [getGeminiModel(), 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter((v,i,a)=>a.indexOf(v)===i);
   for (const model of models) {
@@ -16959,26 +17053,30 @@ async function forecastPergunta() {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, true);
       xhr.setRequestHeader('Content-Type','application/json');
-      xhr.timeout = 20000;
+      xhr.timeout = 40000;
       xhr.onload = () => {
         if (xhr.status === 200) {
           try {
             const d = JSON.parse(xhr.responseText);
             const text = ((d.candidates||[])[0]?.content?.parts||[]).map(p=>p.text||'').join('');
-            resolve({ok: text});
+            resolve({ok: text, model});
           } catch(e) { resolve({err:'parse'}); }
         } else { resolve({err:'HTTP '+xhr.status}); }
       };
       xhr.onerror = xhr.ontimeout = () => resolve({err:'timeout'});
       xhr.send(JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
-        generationConfig:{temperature:0.3, maxOutputTokens:1024}
+        generationConfig:{temperature:0.4, maxOutputTokens:4096}
       }));
     });
 
     if (result.ok) {
-      resEl.innerHTML = `<div style="padding:16px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;font-size:13px;line-height:1.7;white-space:pre-wrap">${result.ok.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:6px">Análise gerada por Gemini ${model} com contexto real da sua carteira · Não constitui recomendação de investimento</div>`;
+      const html = _iaRenderMarkdown(result.ok);
+      resEl.innerHTML = `<div style="padding:12px;background:rgba(139,92,246,0.07);border:1px solid rgba(139,92,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">✅ <strong>Análise pronta!</strong> Clique para ver a resposta completa.</div>
+        <button onclick="showIAModal(${JSON.stringify(pergunta)},${JSON.stringify(html)},${JSON.stringify(result.model)})" style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📖 Ver análise completa</button>
+      </div>`;
+      showIAModal(pergunta, html, result.model);
       return;
     }
     if (result.err?.includes('401') || result.err?.includes('403')) break;
