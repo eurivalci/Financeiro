@@ -16915,41 +16915,82 @@ function renderPerfStrip(pageId) {
 // IA CONTEXTUAL — ASSISTENTE DE CARTEIRA
 // =========================================================
 function _iaRenderMarkdown(text) {
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g,'<em>$1</em>')
-    .replace(/^### (.+)$/gm,'<h4 style="margin:14px 0 4px;font-size:13px;font-weight:700;color:var(--text-primary)">$1</h4>')
-    .replace(/^## (.+)$/gm,'<h3 style="margin:16px 0 6px;font-size:14px;font-weight:700;color:var(--accent-blue)">$1</h3>')
-    .replace(/^# (.+)$/gm,'<h2 style="margin:18px 0 8px;font-size:15px;font-weight:800;color:var(--text-primary)">$1</h2>')
-    .replace(/^[\*\-] (.+)$/gm,'<li style="margin:3px 0;padding-left:4px">$1</li>')
-    .replace(/^(\d+)\. (.+)$/gm,'<li style="margin:3px 0;list-style-type:decimal;padding-left:4px"><strong>$1.</strong> $2</li>')
-    .replace(/(<li.*<\/li>\n?)+/g, m => `<ul style="margin:8px 0 8px 18px;padding:0">${m}</ul>`)
-    .replace(/\n\n/g,'</p><p style="margin:0 0 10px">')
-    .replace(/\n/g,'<br>');
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inline = s => s
+    .replace(/\*\*(.*?)\*\*/g, (_, t) => `<strong>${t}</strong>`)
+    .replace(/`([^`]+)`/g, (_, t) => `<code style="background:var(--bg-primary);padding:1px 6px;border-radius:3px;font-size:11.5px;font-family:monospace;color:var(--accent-blue)">${t}</code>`);
+
+  const lines = text.split('\n');
+  const out = [];
+  let inUl = false, inOl = false;
+
+  const closeList = () => {
+    if (inUl) { out.push('</ul>'); inUl = false; }
+    if (inOl) { out.push('</ol>'); inOl = false; }
+  };
+
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) { closeList(); continue; }
+
+    if (t.startsWith('### ')) {
+      closeList();
+      out.push(`<h4 style="margin:16px 0 5px;font-size:13px;font-weight:700;color:var(--text-primary);border-left:3px solid #8b5cf6;padding-left:9px">${inline(esc(t.slice(4)))}</h4>`);
+    } else if (t.startsWith('## ')) {
+      closeList();
+      out.push(`<div style="margin:20px 0 8px;padding:10px 14px;background:linear-gradient(90deg,rgba(59,130,246,0.08),transparent);border-left:3px solid var(--accent-blue);border-radius:0 6px 6px 0"><span style="font-size:14px;font-weight:700;color:var(--accent-blue)">${inline(esc(t.slice(3)))}</span></div>`);
+    } else if (t.startsWith('# ')) {
+      closeList();
+      out.push(`<h2 style="margin:22px 0 12px;font-size:16px;font-weight:800;color:var(--text-primary);padding-bottom:8px;border-bottom:2px solid var(--border)">${inline(esc(t.slice(2)))}</h2>`);
+    } else if (/^[\*\-] /.test(t)) {
+      closeList(); if (!inUl) { out.push('<ul style="margin:6px 0 10px 4px;padding:0;list-style:none">'); inUl = true; }
+      out.push(`<li style="margin:5px 0;padding-left:18px;position:relative;line-height:1.65"><span style="position:absolute;left:0;color:#8b5cf6;font-weight:700">›</span>${inline(esc(t.slice(2)))}</li>`);
+    } else if (/^\d+\. /.test(t)) {
+      const num = t.match(/^(\d+)\./)[1];
+      const content = t.replace(/^\d+\.\s*/, '');
+      if (!inOl) { closeList(); out.push('<ol style="margin:6px 0 10px 0;padding:0;list-style:none;counter-reset:ia-ol">'); inOl = true; }
+      out.push(`<li style="margin:6px 0;padding:8px 12px 8px 40px;position:relative;background:var(--bg-primary);border-radius:6px;line-height:1.6;border:1px solid var(--border)"><span style="position:absolute;left:12px;top:8px;font-weight:800;color:var(--accent-blue);font-size:13px">${num}.</span>${inline(esc(content))}</li>`);
+    } else {
+      closeList();
+      out.push(`<p style="margin:0 0 9px;line-height:1.75;color:var(--text-secondary)">${inline(esc(t))}</p>`);
+    }
+  }
+  closeList();
+  return out.join('');
 }
 
-function showIAModal(titulo, html, model) {
+let _iaLastResult = null;
+
+function showIAModal() {
+  if (!_iaLastResult) return;
+  const { titulo, html, model } = _iaLastResult;
   let overlay = document.getElementById('modalIAAssistente');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'modalIAAssistente';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:16px';
-    overlay.onclick = e => { if(e.target===overlay) overlay.style.display='none'; };
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;width:min(720px,95vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.45)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
-        <div>
-          <div style="font-size:15px;font-weight:700;color:var(--text-primary)">💬 ${titulo}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gemini ${model} · Contexto real da carteira · Não constitui recomendação de investimento</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:min(760px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 32px 96px rgba(0,0,0,0.5);overflow:hidden">
+      <div style="background:linear-gradient(135deg,rgba(139,92,246,0.12) 0%,rgba(59,130,246,0.1) 100%);border-bottom:1px solid var(--border);padding:18px 22px;flex-shrink:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10px;font-weight:700;color:#8b5cf6;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">💬 Assistente de Carteira · IA</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary);line-height:1.45;word-break:break-word">${titulo}</div>
+          </div>
+          <button onclick="document.getElementById('modalIAAssistente').style.display='none'"
+            style="flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;transition:background .15s"
+            onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">✕</button>
         </div>
-        <button onclick="document.getElementById('modalIAAssistente').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);line-height:1;padding:4px">✕</button>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(139,92,246,0.15);color:#8b5cf6;font-weight:600;border:1px solid rgba(139,92,246,0.25)">🤖 ${model}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.1);color:var(--accent-blue);font-weight:600;border:1px solid rgba(59,130,246,0.2)">📊 Contexto real</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.1);color:#f59e0b;font-weight:600;border:1px solid rgba(245,158,11,0.2)">⚠️ Não é recomendação</span>
+        </div>
       </div>
-      <div style="overflow-y:auto;padding:20px 24px;font-size:13.5px;line-height:1.75;color:var(--text-secondary)">
-        <p style="margin:0 0 10px">${html}</p>
-      </div>
+      <div style="overflow-y:auto;padding:22px 26px;flex:1">${html}</div>
     </div>`;
   overlay.style.display = 'flex';
 }
@@ -17072,11 +17113,18 @@ Estruture sua resposta com seções claras. Use números concretos da carteira. 
 
     if (result.ok) {
       const html = _iaRenderMarkdown(result.ok);
-      resEl.innerHTML = `<div style="padding:12px;background:rgba(139,92,246,0.07);border:1px solid rgba(139,92,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">✅ <strong>Análise pronta!</strong> Clique para ver a resposta completa.</div>
-        <button onclick="showIAModal(${JSON.stringify(pergunta)},${JSON.stringify(html)},${JSON.stringify(result.model)})" style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📖 Ver análise completa</button>
+      _iaLastResult = { titulo: pergunta, html, model: result.model };
+      resEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--bg-primary);border:1px solid rgba(139,92,246,0.3);border-radius:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">✅</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text-primary)">Análise pronta!</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px">Gemini ${result.model} · Clique para abrir</div>
+          </div>
+        </div>
+        <button onclick="showIAModal()" style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 12px rgba(139,92,246,0.35)">📖 Ver análise</button>
       </div>`;
-      showIAModal(pergunta, html, result.model);
+      showIAModal();
       return;
     }
     if (result.err?.includes('401') || result.err?.includes('403')) break;
