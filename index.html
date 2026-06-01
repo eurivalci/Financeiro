@@ -7319,7 +7319,7 @@ self.addEventListener('fetch', e => {
       </div>
       <div class="about-info-row">
         <span class="aik">Versão</span>
-        <span class="aiv">1.0.0</span>
+        <span class="aiv">2.0.0</span>
       </div>
       <div class="about-info-row">
         <span class="aik">Plataforma</span>
@@ -7331,7 +7331,7 @@ self.addEventListener('fetch', e => {
       </div>
       <div class="about-info-row">
         <span class="aik">Última atualização</span>
-        <span class="aiv">Janeiro 2026</span>
+        <span class="aiv">Junho 2026</span>
       </div>
 
       <div class="about-divider"></div>
@@ -8480,23 +8480,55 @@ function updateAlocacao(patrimonio) {
 function updateAlertas(patrimonio) {
   const hoje = new Date();
 
-  // Concentração
+  // Concentração — top ativos + setores com semáforo de risco
   const concContainer = document.getElementById('alertasConcentracao');
-  concContainer.innerHTML = '';
-  for (const a of state.ativos.filter(a => a.categoria === 'rv')) {
-    const val = a.qtd * getCotacao(a.ticker, a.precoMedio);
-    const pct = (val / patrimonio) * 100;
-    if (pct > 15) {
-      concContainer.innerHTML += `
-        <div class="alert alert-warn">
-          <span class="alert-icon">⚠️</span>
-          <div class="alert-text"><strong>${a.ticker}</strong> representa ${fmt(pct)}% da carteira. Considere reduzir a exposição.</div>
+  if (!concContainer) { /* elemento não existe ainda */ } else {
+    const rvAtivosConc = state.ativos.filter(a => a.categoria === 'rv').map(a => {
+      const val = a.qtd * getCotacao(a.ticker, a.precoMedio);
+      return { ticker: a.ticker, setor: a.setor || 'Outros', val, pct: patrimonio > 0 ? val / patrimonio * 100 : 0 };
+    }).filter(x => x.val > 0).sort((a, b) => b.pct - a.pct);
+
+    // Concentração por setor
+    const setoresConc = {};
+    rvAtivosConc.forEach(x => { setoresConc[x.setor] = (setoresConc[x.setor] || 0) + x.pct; });
+    const setoresTop = Object.entries(setoresConc).sort((a, b) => b[1] - a[1]);
+
+    const semaforo = pct => pct > 20 ? { cor: '#ef4444', icon: '🔴', txt: 'Crítico' }
+      : pct > 15 ? { cor: '#f59e0b', icon: '⚠️', txt: 'Alto' }
+      : pct > 10 ? { cor: '#f59e0b', icon: '🟡', txt: 'Atenção' }
+      : { cor: '#10b981', icon: '✅', txt: 'OK' };
+
+    const alertasHTML = rvAtivosConc.filter(x => x.pct > 10).map(x => {
+      const s = semaforo(x.pct);
+      const barW = Math.min(x.pct, 100);
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700;color:var(--text-primary)">${s.icon} ${x.ticker}</span>
+          <span style="font-size:12px;font-weight:700;color:${s.cor}">${fmt(x.pct, 1)}%</span>
         </div>
-      `;
+        <div style="height:4px;background:var(--bg-primary);border-radius:2px">
+          <div style="height:4px;width:${barW}%;background:${s.cor};border-radius:2px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${x.setor} · R$ ${fmt(x.val)} · ${s.txt}</div>
+      </div>`;
+    }).join('');
+
+    const setoresHTML = setoresTop.filter(([, p]) => p > 15).map(([s, p]) => {
+      const sg = semaforo(p);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px">
+        <span style="color:var(--text-secondary)">${sg.icon} ${s}</span>
+        <span style="font-weight:700;color:${sg.cor}">${fmt(p, 1)}%</span>
+      </div>`;
+    }).join('');
+
+    if (!alertasHTML && !setoresHTML) {
+      concContainer.innerHTML = '<div class="alert alert-info"><span class="alert-icon">✅</span><div class="alert-text">Carteira bem diversificada — nenhum ativo ou setor acima de 10%.</div></div>';
+    } else {
+      concContainer.innerHTML = alertasHTML
+        + (setoresHTML ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px">Setores acima de 15%</div>
+            ${setoresHTML}</div>` : '');
     }
-  }
-  if (!concContainer.innerHTML) {
-    concContainer.innerHTML = '<div class="alert alert-info"><span class="alert-icon">✅</span><div class="alert-text">Nenhuma concentração excessiva detectada.</div></div>';
   }
 
   // Vencimentos — redesign profissional
@@ -11007,23 +11039,33 @@ function updateRFPreview() {
     });
   }
 
-  // IR strip
+  // IR strip — valor real por faixa (resgate no limite de cada bracket)
   var irEl = document.getElementById('rfPrevIR');
   if (irEl) {
     var brackets = [
-      { label: 'até 180d', aliq: 22.5, maxDias: 180 },
-      { label: '181–360d', aliq: 20,   maxDias: 360 },
-      { label: '361–720d', aliq: 17.5, maxDias: 720 },
-      { label: 'acima 720d', aliq: 15, maxDias: Infinity }
+      { label: 'até 180d',   sublabel:'0–6 meses',  aliq: 22.5, limDias: 180      },
+      { label: '181–360d',   sublabel:'6–12 meses', aliq: 20,   limDias: 360      },
+      { label: '361–720d',   sublabel:'1–2 anos',   aliq: 17.5, limDias: 720      },
+      { label: 'acima 720d', sublabel:'+ 2 anos',   aliq: 15,   limDias: Infinity }
     ];
     irEl.innerHTML = brackets.map(function(b) {
       var active = irAliq === b.aliq && !isento;
-      var rendB  = _rfCalcValAtMeses(indexador, taxa, valor, mesesFim) - valor;
-      var irB    = isento ? 0 : rendB * b.aliq / 100;
-      return '<div class="rf-ir-seg' + (active ? ' ir-active' : '') + '">'
+      // Calcula o valor se o resgate ocorrer dentro desta faixa (no limite do bracket ou no venc, o que vier antes)
+      var diasResgate = b.limDias === Infinity ? diasFim : Math.min(b.limDias, diasFim);
+      var mesesResgate = diasResgate / 30.44;
+      var valResgate = _rfCalcValAtMeses(indexador, taxa, valor, mesesResgate);
+      var rendFaixa  = Math.max(0, valResgate - valor);
+      var irFaixa    = isento ? 0 : rendFaixa * b.aliq / 100;
+      var liqFaixa   = rendFaixa - irFaixa;
+      var liqPct     = valor > 0 ? (liqFaixa / valor) * 100 : 0;
+      var aplicavel  = diasFim >= (b.limDias === Infinity ? diasFim : (brackets[brackets.indexOf(b)-1]||{limDias:0}).limDias);
+
+      return '<div class="rf-ir-seg' + (active ? ' ir-active' : '') + '" style="opacity:' + (aplicavel ? '1' : '0.45') + '">'
            + '<div class="ir-dias">' + b.label + '</div>'
+           + '<div style="font-size:9px;color:var(--text-muted);margin-bottom:2px">' + b.sublabel + '</div>'
            + '<div class="ir-aliq">' + (isento ? 'Isento' : b.aliq + '% IR') + '</div>'
-           + (active ? '<div class="ir-val">-R$ ' + fmt(irValor,0) + '</div>' : '')
+           + '<div class="ir-val" style="font-size:10px;margin-top:3px">' + (isento ? '—' : (rendFaixa > 0 ? '-R$ ' + fmt(irFaixa,0) : '—')) + '</div>'
+           + '<div style="font-size:9px;color:var(--accent-green);margin-top:1px">' + (isento || rendFaixa <= 0 ? '' : '+' + fmt(liqPct,1) + '% líq.') + '</div>'
            + '</div>';
     }).join('');
   }
@@ -11474,6 +11516,9 @@ function decAtivoSelecionado() {
   var valEl = document.getElementById('decValor');
   if (valEl) { valEl.value = val; decUpdateMinis(); }
   if (infoEl) { infoEl.textContent = info; infoEl.style.display = 'block'; }
+  // Ativo selecionado — chips de origem ficam redundantes
+  var wrapEl = document.getElementById('decOrigemWrap');
+  if (wrapEl) wrapEl.style.display = 'none';
 }
 
 function decComparar() {
