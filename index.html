@@ -27447,7 +27447,7 @@ function calcSaudeScore() {
   const pesos = ativos.map(a => {
     const tipo = (a.categoria || '').toLowerCase();
     const v = tipo === 'rf' ? (calcRFAtualizado ? calcRFAtualizado(a) : parseFloat(a.valorAplicado)||0)
-                            : (a.qtd || a.quantidade || 0) * (a.precoMedio || 0);
+                            : (a.qtd || 0) * (a.precoMedio || 0);
     return patrimonio > 0 ? v / patrimonio : 0;
   });
   const hhi = pesos.reduce((s, w) => s + w * w, 0);
@@ -27462,7 +27462,7 @@ function calcSaudeScore() {
   const hoje = new Date();
   const cutoff12 = new Date(hoje); cutoff12.setFullYear(cutoff12.getFullYear() - 1);
   const provAnual = proventos.filter(p => new Date(p.data + 'T12:00:00') >= cutoff12);
-  const dyAnual = patrimonio > 0 ? provAnual.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) / patrimonio * 100 : 0;
+  const dyAnual = patrimonio > 0 ? provAnual.reduce((s, p) => s + p.valorUnit * p.qtd, 0) / patrimonio * 100 : 0;
   const mesesComProv = new Set(provAnual.map(p => p.data.slice(0, 7))).size;
   const provScore = Math.min(150, Math.round(dyAnual * 10) + mesesComProv * 5);
 
@@ -27470,7 +27470,7 @@ function calcSaudeScore() {
   const despMes = gastos.length > 0
     ? gastos.filter(t => new Date(t.data + 'T12:00:00') >= cutoff12).reduce((s,t) => s + (parseFloat(t.valor)||0), 0) / 12
     : 5000;
-  const rendaMes = provAnual.reduce((s,p) => s+(parseFloat(p.valor)||0),0) / 12;
+  const rendaMes = provAnual.reduce((s,p) => s + p.valorUnit * p.qtd, 0) / 12;
   const cobertura = despMes > 0 ? rendaMes / despMes : 0;
   const cobertScore = Math.min(150, Math.round(cobertura * 150));
 
@@ -27625,7 +27625,7 @@ function abrirSaudeModal() {
   </div>`;
 
   document.getElementById('modalSaudeBody').innerHTML = html;
-  openModal('modalSaude');
+  document.getElementById('modalSaude').classList.add('open');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -27784,9 +27784,9 @@ function renderSetorialAnalise() {
   ativos.forEach(a => {
     const s = a.setor || 'Outros';
     if (!setorMap[s]) setorMap[s] = { ativos: [], total: 0, provAnual: 0 };
-    const val = (a.qtd || a.quantidade || 0) * (a.precoMedio || 0);
+    const val = (a.qtd || 0) * (a.precoMedio || 0);
     const provS = proventos.filter(p => p.ativo === a.ticker && new Date(p.data+'T12:00:00') >= cutoff12)
-                           .reduce((sv, p) => sv + (parseFloat(p.valor)||0), 0);
+                           .reduce((sv, p) => sv + p.valorUnit * p.qtd, 0);
     setorMap[s].ativos.push(a);
     setorMap[s].total += val;
     setorMap[s].provAnual += provS;
@@ -27835,7 +27835,7 @@ function renderSetorialAnalise() {
   const textColor = isDark ? '#9ca3af' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
   if (dyCtx) {
-    _charts['setorDYChart'] = new Chart(dyCtx.getContext('2d'), {
+    state.charts['setorDYChart'] = new Chart(dyCtx.getContext('2d'), {
       type: 'bar',
       data: {
         labels: setores.map(([s]) => s.length > 12 ? s.slice(0,12)+'…' : s),
@@ -27908,7 +27908,7 @@ function abrirRelatorioMensal() {
   const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
   const inp = document.getElementById('relMesRef');
   if (inp && !inp.value) inp.value = mesAtual;
-  openModal('modalRelatorioMensal');
+  document.getElementById('modalRelatorioMensal').classList.add('open');
   renderRelatorioMensal();
 }
 
@@ -27929,7 +27929,7 @@ function renderRelatorioMensal() {
     const d = new Date(p.data + 'T12:00:00');
     return d >= dataInicio && d <= dataFim;
   });
-  const totalProvMes = provsMes.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+  const totalProvMes = provsMes.reduce((s,p) => s + p.valorUnit * p.qtd, 0);
 
   // Gastos do mês
   const gastosMes = ((state.gastos&&state.gastos.transacoes)||[]).filter(t => {
@@ -27956,7 +27956,7 @@ function renderRelatorioMensal() {
 
   // Top 5 ativos
   const top5 = (state.ativos||[]).map(a => {
-    const v = (a.categoria||'').toLowerCase() === 'rf' ? (calcRFAtualizado?calcRFAtualizado(a):parseFloat(a.valorAplicado)||0) : (a.qtd||a.quantidade||0)*(a.precoMedio||0);
+    const v = (a.categoria||'').toLowerCase() === 'rf' ? calcRFAtualizado(a) : (a.qtd||0) * getCotacao(a.ticker, a.precoMedio);
     return { nome: a.ticker || a.nome, v };
   }).sort((a,b)=>b.v-a.v).slice(0,5);
 
@@ -28004,10 +28004,10 @@ function renderRelatorioMensal() {
           </tr></thead>
           <tbody>${provsMes.sort((a,b)=>b.data.localeCompare(a.data)).map(p =>
             `<tr style="border-bottom:1px solid var(--border)">
-              <td style="padding:6px;font-weight:600">${p.ativo||p.ticker||'—'}</td>
+              <td style="padding:6px;font-weight:600">${p.ativo||'—'}</td>
               <td style="padding:6px;text-align:right;color:var(--text-muted)">${p.data}</td>
               <td style="padding:6px;text-align:right;color:var(--text-muted)">${p.tipo||'—'}</td>
-              <td style="padding:6px;text-align:right;font-weight:700;color:var(--accent-green)">R$ ${fmt(parseFloat(p.valor)||0)}</td>
+              <td style="padding:6px;text-align:right;font-weight:700;color:var(--accent-green)">R$ ${fmt(p.valorUnit * p.qtd)}</td>
             </tr>`).join('')}
             <tr style="border-top:2px solid var(--border);font-weight:700">
               <td colspan="3" style="padding:6px">Total</td>
@@ -28145,7 +28145,7 @@ function renderSnapshotChart() {
   const fillColor = variacao >= 0 ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.08)';
 
   destroyChart('snapshotChart');
-  _charts['snapshotChart'] = new Chart(el.getContext('2d'), {
+  state.charts['snapshotChart'] = new Chart(el.getContext('2d'), {
     type: 'line',
     data: {
       labels,
@@ -28493,9 +28493,9 @@ function renderRiscoCarteira() {
 
   // Pesos individuais
   const pesos = ativos.map(a => {
-    const tipo = (a.categoria || a.tipo || '').toLowerCase();
-    const v = tipo === 'rf' ? (calcRFAtualizado ? calcRFAtualizado(a) : parseFloat(a.valorAplicado)||0)
-                            : (a.quantidade || a.qtd || 0) * (a.precoMedio || 0);
+    const tipo = (a.categoria || '').toLowerCase();
+    const v = tipo === 'rf' ? calcRFAtualizado(a)
+                            : (a.qtd || 0) * (a.precoMedio || 0);
     return { ticker: a.ticker || a.nome, v, tipo };
   }).filter(x => x.v > 0);
 
@@ -28610,7 +28610,7 @@ function _renderRiscoRadar(dims) {
   destroyChart('riscoRadar');
   const ctx = document.getElementById('riscoRadar');
   if (!ctx) return;
-  _charts['riscoRadar'] = new Chart(ctx.getContext('2d'), {
+  state.charts['riscoRadar'] = new Chart(ctx.getContext('2d'), {
     type: 'radar',
     data: {
       labels: ['Concentração\nControlada', 'Diversificação', 'Liquidez\nRV/RF', 'Sharpe', 'Baixa\nVolatilidade'],
@@ -28668,7 +28668,7 @@ function renderCalendarioRecebimentos() {
     const d = new Date(p.data + 'T12:00:00');
     if (d.getFullYear() !== _calAno) return;
     const m = d.getMonth();
-    const val = parseFloat(p.valor) || 0;
+    const val = p.valorUnit * p.qtd;
     meses[m].total += val;
     meses[m].ativos[p.ativo] = (meses[m].ativos[p.ativo] || 0) + val;
     meses[m].itens.push(p);
@@ -28722,16 +28722,16 @@ function calDrillMonth(mesIdx) {
   const itens = state.proventos.filter(p => {
     const d = new Date(p.data + 'T12:00:00');
     return d.getFullYear() === _calAno && d.getMonth() === mesIdx;
-  }).sort((a,b) => (parseFloat(b.valor)||0) - (parseFloat(a.valor)||0));
+  }).sort((a,b) => (b.valorUnit * b.qtd) - (a.valorUnit * a.qtd));
 
   if (itens.length === 0) { el.innerHTML = ''; return; }
 
-  const total = itens.reduce((s,p) => s + (parseFloat(p.valor)||0), 0);
+  const total = itens.reduce((s,p) => s + p.valorUnit * p.qtd, 0);
   let html = `<div class="card" style="padding:12px;background:var(--bg-input)">
     <div style="font-size:12px;font-weight:700;margin-bottom:8px">📅 ${nomMes[mesIdx]} ${_calAno} — <span style="color:var(--accent-green)">R$ ${fmt(total)}</span></div>
     <div style="display:flex;flex-direction:column;gap:6px">`;
   itens.forEach(p => {
-    const val = parseFloat(p.valor) || 0;
+    const val = p.valorUnit * p.qtd;
     const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--bg-card);border-radius:6px">
       <div>
@@ -28771,10 +28771,10 @@ function renderProjecaoDividendos() {
   state.ativos.forEach(a => {
     const provs12 = state.proventos.filter(p => p.ativo === a.ticker && new Date(p.data + 'T12:00:00') >= cutoff12);
     if (provs12.length === 0) return;
-    const totalAnual = provs12.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+    const totalAnual = provs12.reduce((s, p) => s + p.valorUnit * p.qtd, 0);
     const mediaM = totalAnual / 12;
     const cotacao = a.precoMedio || 1;
-    const qtd = a.quantidade || 0;
+    const qtd = a.qtd || 0;
     const patrimonioAtivo = cotacao * qtd;
     const dyAnual = patrimonioAtivo > 0 ? (totalAnual / patrimonioAtivo * 100) : 0;
     if (mediaM > 0) {
@@ -28995,9 +28995,9 @@ function calcCenarios() {
   const ativos = state.ativos || [];
   let totalRF = 0, totalRV = 0;
   ativos.forEach(a => {
-    const tipo = (a.tipo || '').toUpperCase();
-    const val = tipo === 'RF' ? calcRFAtualizado(a) : (a.quantidade || 0) * (a.precoMedio || 0);
-    if (tipo === 'RF') totalRF += val; else totalRV += val;
+    const isRF = (a.categoria || '').toLowerCase() === 'rf';
+    const val = isRF ? calcRFAtualizado(a) : (a.qtd || 0) * (a.precoMedio || 0);
+    if (isRF) totalRF += val; else totalRV += val;
   });
   const pctRV = patrimonioAtual > 0 ? totalRV / patrimonioAtual : 0.6;
   const pctRF = 1 - pctRV;
@@ -29079,7 +29079,7 @@ function calcCenarios() {
   destroyChart('cenariosChart');
   const ctx = document.getElementById('cenariosChart');
   if (ctx) {
-    _charts['cenariosChart'] = new Chart(ctx.getContext('2d'), {
+    state.charts['cenariosChart'] = new Chart(ctx.getContext('2d'), {
       type: 'line',
       data: {
         labels,
@@ -29680,7 +29680,7 @@ function calcCenarios() {
   </div>
 
   <!-- F1: Modal Score de Saúde Financeira -->
-  <div class="modal-overlay" id="modalSaude" onclick="if(event.target===this)closeModal('modalSaude')" style="display:none;z-index:9000">
+  <div class="modal-overlay" id="modalSaude" onclick="if(event.target===this)closeModal('modalSaude')" style="z-index:9000">
     <div class="modal" style="max-width:680px;max-height:90vh;display:flex;flex-direction:column">
       <div class="modal-header" style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(59,130,246,.08));border-bottom:1px solid var(--border)">
         <div class="modal-title">💪 Score de Saúde Financeira</div>
@@ -29691,7 +29691,7 @@ function calcCenarios() {
   </div>
 
   <!-- F4: Modal Relatório Mensal -->
-  <div class="modal-overlay" id="modalRelatorioMensal" onclick="if(event.target===this)closeModal('modalRelatorioMensal')" style="display:none;z-index:9000">
+  <div class="modal-overlay" id="modalRelatorioMensal" onclick="if(event.target===this)closeModal('modalRelatorioMensal')" style="z-index:9000">
     <div class="modal" style="max-width:800px;max-height:95vh;display:flex;flex-direction:column">
       <div class="modal-header" style="background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(59,130,246,.08))">
         <div style="display:flex;align-items:center;gap:12px">
